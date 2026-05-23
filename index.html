@@ -1,0 +1,2413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Family Hoops</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#f6511d">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Family Hoops">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Epilogue:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0d0d0d;
+      --surface: #1a1a2e;
+      --surface2: #16213e;
+      --surface3: #1f2a42;
+      --border: #222222;
+      --orange: #f6511d;
+      --gold: #ffb347;
+      --green: #2ecc71;
+      --red: #e74c3c;
+      --blue: #3498db;
+      --text: #ffffff;
+      --text2: #aaaaaa;
+      --radius: 12px;
+      --shadow: 0 4px 20px rgba(0,0,0,0.5);
+    }
+    [data-theme="light"] {
+      --bg: #f0f2f5;
+      --surface: #ffffff;
+      --surface2: #f5f7fa;
+      --surface3: #e8ecf4;
+      --border: #dde1ea;
+      --text: #1a1a2e;
+      --text2: #6b7280;
+      --shadow: 0 4px 20px rgba(0,0,0,0.08);
+    }
+    [data-theme="light"] .header { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    [data-theme="light"] .tab.active { background: var(--surface2); }
+    [data-theme="light"] #appTabs { background: var(--surface); }
+    [data-theme="light"] .modal { background: var(--surface); }
+    [data-theme="light"] .setup-screen { background: var(--bg); }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { background:var(--bg); color:var(--text); font-family:'Epilogue',system-ui,sans-serif; min-height:100vh; max-width:480px; margin:0 auto; position:relative; }
+
+    /* ===== DESKTOP LAYOUT ===== */
+    @media (min-width: 900px) {
+      body { max-width:100%; }
+      .header { max-width:100%; padding:14px 32px; }
+      .header h1 { font-size:1.3rem; }
+      .logo-img { height:40px; }
+
+      /* Sidebar + content wrapper */
+      #appTabs {
+        position:fixed; top:0; left:0; bottom:0; width:200px;
+        flex-direction:column; border-bottom:none; border-right:2px solid var(--orange);
+        padding-top:72px; overflow-x:visible; background:var(--surface);
+        z-index:98;
+      }
+      .tab {
+        min-width:unset; width:100%; padding:14px 24px; text-align:left;
+        font-size:0.75rem; border-bottom:none; border-left:3px solid transparent;
+        border-right:none;
+      }
+      .tab.active { border-left-color:var(--orange); border-bottom-color:transparent; background:#ffffff08; }
+
+      /* Header spans full width above sidebar */
+      .header { position:fixed; top:0; left:0; right:0; z-index:100; }
+
+      /* Content pushed right of sidebar */
+      #appContent {
+        margin-left:200px;
+        margin-top:58px;
+        padding:28px 40px;
+        padding-bottom:40px;
+        max-width:960px;
+      }
+
+      /* Bigger cards on desktop */
+      .card { padding:20px; }
+      .player-card { padding:14px; }
+      .leader-row { padding:12px 0; }
+      .leader-name { font-size:1rem; }
+      .pts-num { font-size:1.35rem; }
+
+      /* Two-column grid for some sections */
+      .desktop-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+
+      /* Modal centered on desktop */
+      .modal-overlay { align-items:center; }
+      .modal { border-radius:16px; max-width:520px; max-height:85vh; }
+
+      /* Setup screen */
+      .setup-screen { max-width:100%; }
+    }
+
+    @media (min-width:1200px) {
+      #appContent { max-width:1100px; padding:32px 56px; }
+    }
+
+    /* HEADER */
+    .header { background:var(--surface); padding:12px 16px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:100; border-bottom:2px solid var(--orange); }
+    .header h1 { font-size:1.15rem; font-weight:900; display:flex; align-items:center; gap:8px; letter-spacing:-0.5px; }
+    .logo-img { height:34px; width:auto; }
+    .header h1 span { color:var(--orange); }
+    .member-pill { display:flex; align-items:center; gap:7px; background:var(--surface2); border:1px solid #333; border-radius:20px; padding:5px 12px 5px 5px; cursor:pointer; font-size:0.82rem; font-weight:700; }
+    .member-initial { width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.75rem; font-weight:900; color:#fff; flex-shrink:0; }
+    .points-badge { background:var(--orange); color:#fff; border-radius:20px; padding:4px 10px; font-size:0.72rem; font-weight:800; letter-spacing:0.3px; }
+
+    /* TABS */
+    .tabs { display:flex; background:var(--surface); border-bottom:1px solid var(--border); position:sticky; top:57px; z-index:99; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
+    .tabs::-webkit-scrollbar { display:none; }
+    .tab { flex:0 0 auto; min-width:58px; padding:10px 6px; text-align:center; cursor:pointer; font-size:0.62rem; font-weight:700; letter-spacing:0.8px; color:var(--text2); transition:all .2s; border-bottom:3px solid transparent; text-transform:uppercase; }
+    .tab.active { color:var(--orange); border-bottom-color:var(--orange); }
+
+    /* BET BUTTONS */
+    .bet-btn { width:100%; padding:10px 8px; background:var(--surface); border:1px solid #333; border-radius:8px; color:var(--text); cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:3px; transition:all .2s; font-size:0.85rem; font-family:'Epilogue',sans-serif; }
+    .bet-btn:hover:not(:disabled) { border-color:var(--orange); background:#1f1f3a; }
+    .bet-btn:disabled { opacity:0.4; cursor:default; }
+
+    /* CONTENT */
+    .content { padding:16px; padding-bottom:80px; }
+
+    /* CARDS */
+    .card { background:var(--surface); border-radius:var(--radius); padding:16px; margin-bottom:12px; box-shadow:var(--shadow); }
+    .card-title { font-size:0.7rem; font-weight:800; color:var(--text2); text-transform:uppercase; letter-spacing:1.2px; margin-bottom:10px; }
+
+    /* LEADERBOARD */
+    .leader-row { display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid var(--border); }
+    .leader-row:last-child { border-bottom:none; }
+    .leader-rank { font-size:0.85rem; font-weight:900; width:24px; text-align:center; color:var(--text2); }
+    .leader-rank.gold { color:#FFD700; }
+    .leader-rank.silver { color:#C0C0C0; }
+    .leader-rank.bronze { color:#CD7F32; }
+    .leader-avatar { width:40px; height:40px; display:flex; align-items:center; justify-content:center; border-radius:50%; font-size:0.9rem; font-weight:900; color:#fff; flex-shrink:0; }
+    .leader-info { flex:1; }
+    .leader-name { font-weight:800; font-size:0.9rem; }
+    .leader-sub { font-size:0.72rem; color:var(--text2); margin-top:2px; }
+    .leader-pts { text-align:right; }
+    .leader-pts .pts-num { font-size:1.15rem; font-weight:900; color:var(--gold); }
+    .leader-pts .pts-label { font-size:0.6rem; color:var(--text2); }
+    .you-badge { background:var(--orange); color:#fff; font-size:0.58rem; font-weight:800; padding:2px 6px; border-radius:10px; margin-left:6px; letter-spacing:0.5px; }
+
+    /* PLAYER CARDS */
+    .player-card { display:flex; align-items:center; gap:12px; padding:10px; background:var(--surface2); border-radius:10px; margin-bottom:8px; }
+    .player-photo { width:56px; height:56px; border-radius:8px; flex-shrink:0; background:var(--surface3); overflow:hidden; }
+    .player-photo-sm { width:40px; height:40px; border-radius:6px; flex-shrink:0; background:var(--surface3); overflow:hidden; }
+    .player-photo img, .player-photo-sm img { width:100%; height:100%; object-fit:cover; object-position:top center; filter:contrast(1.15) brightness(1.02) saturate(0.95); display:block; }
+    .player-photo-fallback { width:56px; height:56px; border-radius:8px; background:var(--surface); flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:0.65rem; font-weight:700; color:var(--text2); text-align:center; line-height:1.2; }
+    .player-info { flex:1; min-width:0; }
+    .player-name { font-weight:800; font-size:0.88rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .player-sub { font-size:0.7rem; color:var(--text2); margin-top:2px; }
+    .player-fps { font-weight:900; color:var(--gold); font-size:1rem; }
+    .player-fps-label { font-size:0.58rem; color:var(--text2); text-align:right; }
+    .remove-btn { background:none; border:none; color:var(--text2); cursor:pointer; font-size:1rem; padding:4px; font-family:'Epilogue',sans-serif; }
+
+    /* STAT PILLS */
+    .stats-row { display:flex; gap:5px; flex-wrap:wrap; margin-top:5px; }
+    .stat-pill { background:var(--surface3); border-radius:5px; padding:2px 6px; font-size:0.62rem; color:var(--text2); font-weight:600; }
+    .stat-pill b { color:var(--text); font-weight:800; }
+
+    /* BUTTONS */
+    .btn { padding:10px 18px; border-radius:8px; border:none; cursor:pointer; font-weight:800; font-size:0.82rem; transition:all .2s; font-family:'Epilogue',sans-serif; letter-spacing:0.3px; }
+    .btn-primary { background:var(--orange); color:#fff; }
+    .btn-primary:hover { background:#e04015; }
+    .btn-success { background:var(--green); color:#fff; }
+    .btn-danger { background:var(--red); color:#fff; }
+    .btn-ghost { background:var(--surface2); color:var(--text); border:1px solid #333; }
+    .btn:disabled { opacity:0.4; cursor:default; }
+    .btn-sm { padding:6px 12px; font-size:0.72rem; border-radius:6px; }
+
+    /* CHORE CARDS */
+    .chore-card { display:flex; align-items:center; gap:12px; padding:14px; background:var(--surface2); border-radius:10px; margin-bottom:10px; border:1px solid var(--border); transition:border-color .2s; }
+    .chore-card:hover { border-color:var(--orange); }
+    .chore-tag { width:36px; height:36px; border-radius:8px; background:var(--orange)22; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .chore-tag span { font-size:0.55rem; font-weight:900; color:var(--orange); text-transform:uppercase; letter-spacing:0.5px; text-align:center; line-height:1.2; }
+    .chore-info { flex:1; }
+    .chore-name { font-weight:800; font-size:0.88rem; }
+    .chore-desc { font-size:0.72rem; color:var(--text2); margin-top:2px; }
+    .chore-cost { text-align:right; flex-shrink:0; }
+    .chore-pts { font-size:1.05rem; font-weight:900; color:var(--gold); }
+    .chore-pts-label { font-size:0.58rem; color:var(--text2); }
+
+    /* TASKS */
+    .task-card { padding:14px; background:var(--surface2); border-radius:10px; margin-bottom:10px; border-left:4px solid var(--orange); }
+    .task-card.completed { border-left-color:var(--green); opacity:0.7; }
+    .task-card.declined { border-left-color:var(--red); opacity:0.5; }
+    .task-header { display:flex; align-items:flex-start; gap:8px; margin-bottom:8px; }
+    .task-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; margin-top:4px; }
+    .task-name { font-weight:800; font-size:0.88rem; }
+    .task-meta { font-size:0.7rem; color:var(--text2); margin-top:2px; }
+    .task-actions { display:flex; gap:8px; margin-top:10px; }
+    .status-badge { display:inline-block; padding:3px 8px; border-radius:6px; font-size:0.65rem; font-weight:800; letter-spacing:0.3px; text-transform:uppercase; }
+    .status-pending { background:#f6511d22; color:var(--orange); }
+    .status-accepted { background:#3498db22; color:var(--blue); }
+    .status-completed { background:#2ecc7122; color:var(--green); }
+    .status-declined { background:#e74c3c22; color:var(--red); }
+
+    /* GAME CARDS */
+    .game-card { padding:12px; background:var(--surface2); border-radius:10px; margin-bottom:10px; }
+    .game-status.live { color:var(--green); font-weight:800; }
+    .my-players-in-game { margin-top:8px; padding-top:0; }
+    .my-player-stat { display:flex; align-items:center; justify-content:space-between; font-size:0.75rem; padding:3px 0; }
+
+    /* MODAL */
+    .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:600; display:flex; align-items:flex-end; justify-content:center; opacity:0; pointer-events:none; transition:opacity .3s; }
+    .modal-overlay.open { opacity:1; pointer-events:all; }
+    .modal { background:var(--surface); border-radius:20px 20px 0 0; width:100%; max-width:480px; padding:24px; max-height:90vh; overflow-y:auto; transform:translateY(20px); transition:transform .3s; }
+    .modal-overlay.open .modal { transform:translateY(0); }
+    .modal-title { font-size:1.05rem; font-weight:900; margin-bottom:16px; letter-spacing:-0.3px; }
+    .modal-close { float:right; background:none; border:none; color:var(--text2); font-size:1.3rem; cursor:pointer; font-family:'Epilogue',sans-serif; }
+
+    /* FORMS */
+    .form-group { margin-bottom:14px; }
+    .form-label { font-size:0.75rem; font-weight:700; color:var(--text2); margin-bottom:6px; display:block; text-transform:uppercase; letter-spacing:0.5px; }
+    .form-input { width:100%; padding:10px 12px; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-size:0.9rem; font-family:'Epilogue',sans-serif; }
+    .form-input:focus { outline:none; border-color:var(--orange); }
+
+    /* PLAYER SEARCH */
+    .player-search-list { max-height:320px; overflow-y:auto; margin-top:8px; }
+    .player-option { display:flex; align-items:center; gap:10px; padding:10px; border-radius:8px; cursor:pointer; }
+    .player-option:hover { background:var(--surface2); }
+    .player-option.on-roster { opacity:0.4; pointer-events:none; }
+
+    /* MEMBER CHIPS */
+    .member-chips { display:flex; gap:8px; flex-wrap:wrap; }
+    .member-chip { display:flex; align-items:center; gap:6px; padding:8px 12px; border-radius:20px; border:2px solid var(--border); cursor:pointer; font-size:0.82rem; font-weight:700; transition:all .2s; }
+    .member-chip.selected { border-color:var(--orange); background:var(--surface2); }
+
+    /* TOAST */
+    .toast { position:fixed; bottom:90px; left:50%; transform:translateX(-50%) translateY(20px); background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:10px 20px; font-size:0.82rem; font-weight:700; z-index:300; opacity:0; transition:all .3s; pointer-events:none; box-shadow:var(--shadow); white-space:nowrap; }
+    .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+    .toast.success { border-color:var(--green); }
+    .toast.error { border-color:var(--red); }
+
+    /* EMPTY STATE */
+    .empty { text-align:center; padding:40px 20px; color:var(--text2); }
+    .empty p { font-size:0.88rem; margin-bottom:16px; line-height:1.6; }
+
+    /* SETUP SCREEN */
+    .setup-screen { position:fixed; inset:0; background:var(--bg); z-index:500; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px; }
+
+    /* SECTION HEADER */
+    .section-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+    .section-header h2 { font-size:0.95rem; font-weight:900; letter-spacing:-0.3px; }
+
+    /* PROGRESS BAR */
+    .progress-bar { height:5px; background:var(--surface3); border-radius:3px; overflow:hidden; margin-top:8px; }
+    .progress-fill { height:100%; border-radius:3px; transition:width .5s; }
+
+    /* NOTIFICATION DOT */
+    .notif-dot { display:inline-block; width:7px; height:7px; background:var(--orange); border-radius:50%; margin-left:3px; vertical-align:middle; }
+
+    /* SCROLLBAR */
+    ::-webkit-scrollbar { width:4px; }
+    ::-webkit-scrollbar-track { background:transparent; }
+    ::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+
+    .hidden { display:none !important; }
+
+    /* CHAT */
+    .chat-bubble { display:flex; gap:10px; margin-bottom:14px; align-items:flex-end; }
+    .chat-bubble.mine { flex-direction:row-reverse; }
+    .chat-text { max-width:72%; padding:10px 14px; border-radius:18px; font-size:0.88rem; line-height:1.5; word-break:break-word; }
+    .chat-bubble:not(.mine) .chat-text { background:var(--surface2); border-bottom-left-radius:4px; }
+    .chat-bubble.mine .chat-text { background:var(--orange); color:#fff; border-bottom-right-radius:4px; }
+    .chat-meta { font-size:0.6rem; color:var(--text2); margin-top:3px; }
+    .chat-bubble.mine .chat-meta { text-align:right; }
+    .chat-input-bar { position:fixed; bottom:0; left:0; right:0; background:var(--surface); border-top:1px solid var(--border); padding:10px 16px; display:flex; gap:8px; z-index:99; }
+    @media(min-width:900px){ .chat-input-bar { left:200px; } }
+
+    .live-dot { display:inline-block; width:7px; height:7px; background:var(--green); border-radius:50%; animation:pulse 1.5s ease-in-out infinite; margin-right:4px; }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.8)} }
+
+    /* NBA AVATAR RING ANIMATION */
+    .nba-avatar-wrap { position:relative; flex-shrink:0; border-radius:50%; }
+    .nba-avatar-wrap::before {
+      content:''; position:absolute; inset:0; border-radius:50%;
+      background:conic-gradient(from 0deg, #f6511d 0%, #ffb347 25%, #f6511d 50%, #ffb347 75%, #f6511d 100%);
+      animation:nba-ring-spin 2s linear infinite;
+      z-index:0;
+    }
+    .nba-avatar-inner {
+      position:absolute; inset:3px; border-radius:50%; overflow:hidden; z-index:1;
+    }
+    .nba-avatar-inner img { width:100%; height:100%; object-fit:cover; object-position:top center;
+      filter:contrast(1.15) brightness(1.02) saturate(0.95); display:block; }
+    @keyframes nba-ring-spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+
+    /* AVATAR PICKER CARD */
+    .avatar-pick-card { display:flex; flex-direction:column; align-items:center; gap:5px; padding:8px 4px;
+      border-radius:10px; cursor:pointer; background:var(--surface2); border:1px solid #2a2a2a;
+      transition:all .2s; text-align:center; }
+    .avatar-pick-card:hover { border-color:var(--orange); transform:scale(1.05); background:#1f1f3a; }
+    .avatar-pick-card:hover .avatar-pick-img { box-shadow:0 0 12px rgba(246,81,29,0.6); }
+    .avatar-pick-img { width:54px; height:54px; border-radius:50%; object-fit:cover; object-position:top center;
+      filter:contrast(1.15) brightness(1.02) saturate(0.95); transition:box-shadow .2s; background:var(--surface); }
+
+    /* BOUNCING BASKETBALL LOADING */
+    .ball-bounce { }
+    .ball-shadow { display:none; }
+  </style>
+</head>
+<body>
+
+<div class="toast" id="toast"></div>
+
+<!-- LOGIN SCREEN -->
+<div class="setup-screen" id="loginScreen" style="display:none">
+  <img src="basketball.gif" style="height:80px;width:auto;margin-bottom:14px" alt="">
+  <h1 style="font-size:1.9rem;font-weight:900;letter-spacing:-1px;margin-bottom:4px">Family Hoops</h1>
+  <p style="color:var(--text2);margin-bottom:16px;font-size:0.85rem">Who's playing today?</p>
+  <input id="loginSearch" class="form-input" placeholder="Search name…" oninput="filterLoginMembers()"
+    style="width:100%;max-width:340px;margin-bottom:14px;border-radius:12px;font-size:0.95rem;">
+  <div id="loginMemberList" style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;width:100%;max-width:340px"></div>
+  <button id="loginAddBtn" class="btn btn-primary" style="display:none;margin-top:14px;width:100%;max-width:340px" onclick="addMemberFromSearch()"></button>
+  <button class="btn btn-ghost" style="margin-top:12px;width:100%;max-width:340px" onclick="startNewMemberFromLogin()">+ New Member</button>
+  <button class="btn btn-ghost btn-sm" style="margin-top:10px;opacity:0.5" onclick="toggleTheme()">Toggle Theme</button>
+</div>
+
+<!-- SETUP SCREEN -->
+<div class="setup-screen" id="setupScreen">
+  <img src="basketball.gif" style="height:80px;width:auto;margin-bottom:20px" alt="basketball">
+  <h1 style="font-size:2rem;font-weight:900;letter-spacing:-1px;margin-bottom:6px">Family Hoops</h1>
+  <p style="color:var(--text2);text-align:center;margin-bottom:28px;font-size:0.85rem;line-height:1.7">Fantasy NBA with <span style="color:var(--gold);font-weight:800">family points</span><br>— spend them to skip chores</p>
+
+  <!-- CHOICE PANEL -->
+  <div id="setupChoice" style="display:flex;flex-direction:column;gap:14px;width:100%;max-width:260px">
+    <button class="btn btn-primary" style="padding:18px;font-size:1rem;font-weight:900;border-radius:14px" onclick="showCreatePanel()">Create a Family</button>
+    <button class="btn btn-ghost" style="padding:18px;font-size:1rem;font-weight:900;border-radius:14px" onclick="showJoinPanel()">Join a Family</button>
+  </div>
+
+  <!-- CREATE PANEL -->
+  <div id="setupCreatePanel" style="display:none;flex-direction:column;align-items:center">
+    <div id="setupAvatarWrap" style="position:relative;margin-bottom:14px;cursor:pointer" onclick="openAvatarPicker('setup')">
+      <div id="setupAvatarPreview" style="width:80px;height:80px;border-radius:50%;background:#f6511d;display:flex;align-items:center;justify-content:center;font-size:2rem;font-weight:900;color:#fff;overflow:hidden;border:3px solid #333;transition:border-color .2s;">?</div>
+      <div style="position:absolute;bottom:0;right:0;width:26px;height:26px;border-radius:50%;background:var(--orange);display:flex;align-items:center;justify-content:center;font-size:0.65rem;font-weight:900;border:2px solid var(--bg)">+</div>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:20px">
+      <button class="btn btn-ghost btn-sm" onclick="openAvatarPicker('setup')">NBA Avatar</button>
+      <label class="btn btn-ghost btn-sm" style="cursor:pointer">Upload Photo<input type="file" accept="image/*" style="display:none" onchange="setupUploadPhoto(this)"></label>
+    </div>
+    <input class="form-input" id="setupName" placeholder="Your name..." maxlength="20"
+      style="width:240px;text-align:center;font-size:1rem;font-weight:700;margin-bottom:12px;border-radius:12px"
+      oninput="updateSetupPreview()">
+    <input class="form-input" id="setupPin" type="password" maxlength="4" placeholder="Set a 4-digit PIN" inputmode="numeric"
+      style="width:240px;text-align:center;font-size:1rem;font-weight:700;margin-bottom:6px;border-radius:12px;letter-spacing:6px"
+      onkeydown="if(event.key==='Enter')finishSetup()">
+    <div style="font-size:0.68rem;color:var(--text2);margin-bottom:16px">Required to log in each time</div>
+    <div id="familyCodeWrap" style="margin-bottom:20px;text-align:center">
+      <input class="form-input" id="setupFamilyCode" placeholder="Set a family code (e.g. hoops123)"
+        style="width:240px;text-align:center;font-size:0.9rem;font-weight:700;border-radius:12px;margin-bottom:4px">
+      <div style="font-size:0.68rem;color:var(--text2)">Others need this to join — keep it private</div>
+    </div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-ghost" onclick="showSetupChoice()">Back</button>
+      <button class="btn btn-primary" style="padding:14px 28px;font-size:1rem;font-weight:900;border-radius:14px" onclick="finishSetup()">Play</button>
+    </div>
+  </div>
+
+  <!-- JOIN PANEL -->
+  <div id="setupJoinPanel" style="display:none;flex-direction:column;align-items:center">
+    <input class="form-input" id="joinName" placeholder="Your name..." maxlength="20"
+      style="width:240px;text-align:center;font-size:1rem;font-weight:700;margin-bottom:12px;border-radius:12px">
+    <input class="form-input" id="joinPin" type="password" maxlength="4" placeholder="Set a 4-digit PIN" inputmode="numeric"
+      style="width:240px;text-align:center;font-size:1rem;font-weight:700;margin-bottom:6px;border-radius:12px;letter-spacing:6px">
+    <div style="font-size:0.68rem;color:var(--text2);margin-bottom:16px">Required to log in each time</div>
+    <input class="form-input" id="joinFamilyCode" type="password" placeholder="Enter family code..."
+      style="width:240px;text-align:center;font-size:1rem;font-weight:700;margin-bottom:6px;border-radius:12px;letter-spacing:4px"
+      onkeydown="if(event.key==='Enter')finishJoin()">
+    <div style="font-size:0.68rem;color:var(--text2);margin-bottom:20px">Ask your family for the code</div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-ghost" onclick="showSetupChoice()">Back</button>
+      <button class="btn btn-primary" style="padding:14px 28px;font-size:1rem;font-weight:900;border-radius:14px" onclick="finishJoin()">Join</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Avatar Picker (NBA players) -->
+<div class="modal-overlay" id="avatarPickerModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('avatarPickerModal')">x</button>
+    <div class="modal-title">Pick NBA Avatar</div>
+    <input class="form-input" id="avatarSearch" placeholder="Search player..." oninput="filterAvatarPlayers()" style="margin-bottom:10px">
+    <div id="avatarPlayerList" style="max-height:380px;overflow-y:auto;display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:4px 2px;"></div>
+  </div>
+</div>
+
+<!-- MODAL: Edit Profile -->
+<div class="modal-overlay" id="editProfileModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('editProfileModal')">x</button>
+    <div class="modal-title">Edit Profile</div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:20px">
+      <div id="editProfileAvatar" style="cursor:pointer" onclick="openAvatarPicker(editingMemberId)"></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost btn-sm" onclick="openAvatarPicker(editingMemberId)">NBA Avatar</button>
+        <label class="btn btn-ghost btn-sm" style="cursor:pointer">Upload<input type="file" accept="image/*" style="display:none" onchange="editUploadPhoto(this)"></label>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Name</label>
+      <input class="form-input" id="editProfileName" maxlength="20">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Color</label>
+      <div id="editColorPicker" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">PIN Lock (optional)</label>
+      <div style="display:flex;gap:8px">
+        <input class="form-input" id="editPin" type="password" maxlength="4" placeholder="Set 4-digit PIN" inputmode="numeric" style="flex:1">
+        <button class="btn btn-ghost btn-sm" onclick="clearMemberPin()">Remove</button>
+      </div>
+      <div style="font-size:0.65rem;color:var(--text2);margin-top:4px">Leave blank to keep current. Requires PIN on login.</div>
+    </div>
+    <button class="btn btn-primary" style="width:100%;margin-top:8px" onclick="saveProfile()">Save</button>
+    <button class="btn btn-danger btn-sm" style="width:100%;margin-top:10px" onclick="openDeleteAccount()">Delete Account</button>
+  </div>
+</div>
+
+<!-- DRAFT ROOM SCREEN -->
+<div class="setup-screen" id="draftScreen" style="display:none;justify-content:flex-start;padding:0;overflow-y:auto">
+  <div style="width:100%;max-width:560px;padding:24px 20px 40px">
+    <div id="draftContent"></div>
+  </div>
+</div>
+
+<!-- HEADER -->
+<div class="header" id="appHeader" style="display:none">
+  <h1><img src="basketball.gif" class="logo-img" alt="">Family <span>Hoops</span></h1>
+  <div style="display:flex;align-items:center;gap:8px">
+    <div class="member-pill" onclick="openMemberSwitcher()">
+      <div id="headerAvatar"></div>
+      <span id="headerName">You</span>
+    </div>
+    <div class="points-badge" id="headerPoints">0 pts</div>
+  </div>
+</div>
+
+<!-- TABS -->
+<div class="tabs" id="appTabs" style="display:none">
+  <div class="tab active" onclick="switchTab('home')" id="tab-home">Home</div>
+  <div class="tab" onclick="switchTab('team')" id="tab-team">Team</div>
+  <div class="tab" onclick="switchTab('live')" id="tab-live">Live</div>
+  <div class="tab" onclick="switchTab('rewards')" id="tab-rewards">Shop</div>
+  <div class="tab" onclick="switchTab('tasks')" id="tab-tasks">Tasks</div>
+  <div class="tab" onclick="switchTab('predict')" id="tab-predict">Bet</div>
+  <div class="tab" onclick="switchTab('chat')" id="tab-chat">Chat</div>
+</div>
+
+<!-- CONTENT -->
+<div class="content" id="appContent" style="display:none">
+  <div id="view-home"></div>
+  <div id="view-team" class="hidden"></div>
+  <div id="view-live" class="hidden"></div>
+  <div id="view-rewards" class="hidden"></div>
+  <div id="view-tasks" class="hidden"></div>
+  <div id="view-predict" class="hidden"></div>
+  <div id="view-chat" class="hidden"></div>
+</div>
+
+<!-- MODAL: Switch Member -->
+<div class="modal-overlay" id="switchMemberModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('switchMemberModal')">x</button>
+    <div class="modal-title">Who's Playing?</div>
+    <div id="switchMemberList"></div>
+    <button class="btn btn-ghost" style="width:100%;margin-top:12px" onclick="openAddMemberModal()">+ Add Member</button>
+    <div style="display:flex;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+      <button class="btn btn-ghost btn-sm" style="flex:1" onclick="toggleTheme()">Toggle Theme</button>
+      <button class="btn btn-ghost btn-sm" style="flex:1" onclick="logout()">Log Out</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Add Member -->
+<div class="modal-overlay" id="addMemberModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('addMemberModal')">x</button>
+    <div class="modal-title">Add Family Member</div>
+    <div class="form-group">
+      <label class="form-label">Name</label>
+      <input class="form-input" id="newMemberName" placeholder="Dad, Emma, Mom..." maxlength="20">
+    </div>
+    <div class="form-group" id="familyCodeInputWrap">
+      <label class="form-label">Family Code</label>
+      <input class="form-input" id="newMemberFamilyCode" type="password" placeholder="Enter family code...">
+      <div style="font-size:0.65rem;color:var(--text2);margin-top:4px">Ask a family member for the code</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Color</label>
+      <div id="colorPicker" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
+    </div>
+    <button class="btn btn-primary" style="width:100%;margin-top:8px" onclick="saveMember()">Add</button>
+  </div>
+</div>
+
+<!-- MODAL: Add Player -->
+<div class="modal-overlay" id="addPlayerModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('addPlayerModal')">x</button>
+    <div class="modal-title">Draft a Player</div>
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <input class="form-input" id="playerSearch" placeholder="Search by name or team..." oninput="filterPlayers()" style="flex:1">
+      <button class="btn btn-sm" id="playoffsToggleBtn"
+        style="background:var(--orange);color:#fff;white-space:nowrap;font-family:'Epilogue',sans-serif;font-weight:800;"
+        onclick="togglePlayoffsOnly()">Playoffs</button>
+    </div>
+    <div class="player-search-list" id="playerSearchList"></div>
+  </div>
+</div>
+
+<!-- MODAL: Request Chore -->
+<div class="modal-overlay" id="requestChoreModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('requestChoreModal')">x</button>
+    <div class="modal-title" id="choreModalTitle">Request Chore</div>
+    <p style="color:var(--text2);font-size:0.82rem;margin-bottom:16px;line-height:1.5" id="choreModalDesc"></p>
+    <div style="background:var(--surface2);border-radius:10px;padding:12px;margin-bottom:10px;display:flex;justify-content:space-between">
+      <span style="color:var(--text2);font-size:0.82rem">Your points</span>
+      <span style="font-weight:800;color:var(--gold)" id="choreModalYourPts">0</span>
+    </div>
+    <div style="background:var(--surface2);border-radius:10px;padding:12px;margin-bottom:16px;display:flex;justify-content:space-between">
+      <span style="color:var(--text2);font-size:0.82rem">Cost</span>
+      <span style="font-weight:800;color:var(--orange)" id="choreModalCost">0</span>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Assign to</label>
+      <div class="member-chips" id="choreAssigneePicker"></div>
+    </div>
+    <button class="btn btn-primary" style="width:100%;margin-top:8px" id="confirmChoreBtn" onclick="confirmChoreRequest()">Spend Points & Request</button>
+  </div>
+</div>
+
+<!-- MODAL: Confirm Complete -->
+<div class="modal-overlay" id="confirmCompleteModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('confirmCompleteModal')">x</button>
+    <div class="modal-title">Confirm Complete</div>
+    <p style="color:var(--text2);font-size:0.88rem;margin-bottom:20px;line-height:1.6" id="confirmCompleteDesc"></p>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-ghost" style="flex:1" onclick="closeModal('confirmCompleteModal')">Not Yet</button>
+      <button class="btn btn-success" style="flex:1" onclick="confirmComplete()">Yes, Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: PIN -->
+<div class="modal-overlay" id="pinModal">
+  <div class="modal" style="max-width:320px">
+    <div class="modal-title" id="pinModalTitle">Enter PIN</div>
+    <input class="form-input" id="pinInput" type="password" maxlength="4" placeholder="••••" inputmode="numeric"
+      style="text-align:center;font-size:1.8rem;letter-spacing:10px;margin-bottom:8px"
+      onkeydown="if(event.key==='Enter')submitPin()">
+    <div style="color:var(--red);font-size:0.78rem;text-align:center;margin-bottom:12px;display:none" id="pinError">Incorrect PIN — try again</div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-ghost" style="flex:1" onclick="closeModal('pinModal')">Cancel</button>
+      <button class="btn btn-primary" style="flex:1" onclick="submitPin()">Enter</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Delete Account -->
+<div class="modal-overlay" id="deleteAccountModal">
+  <div class="modal" style="max-width:360px">
+    <div class="modal-title">Delete Account?</div>
+    <p style="color:var(--text2);font-size:0.85rem;margin-bottom:20px;line-height:1.6">This permanently deletes your profile, roster, and all points. Cannot be undone.</p>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-ghost" style="flex:1" onclick="closeModal('deleteAccountModal')">Cancel</button>
+      <button class="btn btn-danger" style="flex:1" onclick="confirmDeleteAccount()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Place Bet -->
+<div class="modal-overlay" id="predictModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('predictModal')">x</button>
+    <div class="modal-title">Place Your Bet</div>
+    <div style="background:var(--surface2);border-radius:10px;padding:14px;margin-bottom:16px">
+      <div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text2);margin-bottom:4px">Your Pick</div>
+      <div style="font-size:1.05rem;font-weight:900" id="predLabel">—</div>
+      <div style="font-size:1.3rem;font-weight:900;color:var(--orange);margin-top:2px" id="predOddsDisplay">—</div>
+    </div>
+    <div style="font-size:0.78rem;color:var(--text2);margin-bottom:8px">Balance: <b style="color:var(--gold)" id="predBalance">0</b></div>
+    <div class="form-group">
+      <label class="form-label">Wager (family points)</label>
+      <input class="form-input" id="predWager" type="number" min="1" placeholder="Enter amount..." oninput="updatePredPotential()">
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:14px">
+      <button class="btn btn-ghost btn-sm" onclick="setQuickWager(25)">25</button>
+      <button class="btn btn-ghost btn-sm" onclick="setQuickWager(50)">50</button>
+      <button class="btn btn-ghost btn-sm" onclick="setQuickWager(100)">100</button>
+      <button class="btn btn-ghost btn-sm" onclick="setQuickWager(250)">250</button>
+      <button class="btn btn-ghost btn-sm" style="flex:1" onclick="setQuickWager('all')">All In</button>
+    </div>
+    <div style="background:var(--surface2);border-radius:10px;padding:12px;display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <span style="color:var(--text2);font-size:0.82rem">Potential win</span>
+      <span style="font-weight:900;font-size:1.05rem;color:var(--green)" id="predPotWin">—</span>
+    </div>
+    <button class="btn btn-primary" style="width:100%" onclick="confirmPrediction()">Lock It In</button>
+  </div>
+</div>
+
+<script>
+// ==================== CONSTANTS ====================
+const MEMBER_COLORS = ['#f6511d','#3498db','#2ecc71','#9b59b6','#e67e22','#e91e63','#1abc9c','#f39c12'];
+
+const CHORES = [
+  {id:'feeddog',  name:'Feed the Dog',       cost:75,  desc:'Fill the food and water bowls (~5 min)'},
+  {id:'brushdog', name:'Brush the Dog',      cost:150, desc:'Brush the dog thoroughly (~10 min)'},
+  {id:'gooutside',name:'Go Outside',         cost:200, desc:'Take the dog out to do their business (~15 min)'},
+  {id:'walkdog',  name:'Walk the Dog',       cost:300, desc:'Full walk around the block (~20 min)'},
+  {id:'dishes',   name:'Do the Dishes',      cost:300, desc:'Wash, dry, and put away all dishes (~20 min)'},
+  {id:'vacuum',   name:'Vacuum',             cost:250, desc:'Vacuum the living room (~15 min)'},
+  {id:'cleanroom',name:'Clean Your Room',    cost:500, desc:'Make bed, tidy up, put everything away (~30 min)'},
+  {id:'laundry',  name:'Do Laundry',         cost:600, desc:'Wash, dry, and fold a full load (~45 min)'},
+];
+
+// Static fallback — top stars with verified IDs, 2025-26 teams. CDN loads all ~450 players on init.
+const NBA_PLAYERS_FALLBACK = [
+  // OKC Thunder
+  {id:'1628983', name:'Shai Gilgeous-Alexander', team:'OKC', pos:'PG'},
+  {id:'1631096', name:'Chet Holmgren',           team:'OKC', pos:'C'},
+  // LAL Lakers
+  {id:'1629029', name:'Luka Doncic',             team:'LAL', pos:'PG'},
+  {id:'2544',    name:'LeBron James',            team:'LAL', pos:'SF'},
+  {id:'1630559', name:'Austin Reaves',           team:'LAL', pos:'SG'},
+  // BOS Celtics
+  {id:'1628369', name:'Jayson Tatum',            team:'BOS', pos:'SF'},
+  {id:'1627759', name:'Jaylen Brown',            team:'BOS', pos:'SG'},
+  // DEN Nuggets
+  {id:'203999',  name:'Nikola Jokic',            team:'DEN', pos:'C'},
+  {id:'1627750', name:'Jamal Murray',            team:'DEN', pos:'PG'},
+  // MIL Bucks
+  {id:'203507',  name:'Giannis Antetokounmpo',   team:'MIL', pos:'PF'},
+  {id:'203081',  name:'Damian Lillard',          team:'POR', pos:'PG'},
+  // MIN Timberwolves
+  {id:'1630162', name:'Anthony Edwards',         team:'MIN', pos:'SG'},
+  {id:'203497',  name:'Rudy Gobert',             team:'MIN', pos:'C'},
+  // SAS Spurs
+  {id:'1641705', name:'Victor Wembanyama',       team:'SAS', pos:'C'},
+  {id:'1628368', name:"De'Aaron Fox",            team:'SAS', pos:'PG'},
+  {id:'1642264', name:'Stephon Castle',          team:'SAS', pos:'PG'},
+  // DAL Mavericks
+  {id:'203076',  name:'Anthony Davis',           team:'WAS', pos:'C'},
+  {id:'202681',  name:'Kyrie Irving',            team:'DAL', pos:'PG'},
+  // NYK Knicks
+  {id:'1628973', name:'Jalen Brunson',           team:'NYK', pos:'PG'},
+  {id:'1626157', name:'Karl-Anthony Towns',      team:'NYK', pos:'C'},
+  {id:'1628969', name:'Mikal Bridges',           team:'NYK', pos:'SF'},
+  {id:'1628384', name:'OG Anunoby',              team:'NYK', pos:'SF'},
+  {id:'1628404', name:'Josh Hart',               team:'NYK', pos:'SG'},
+  {id:'1629628', name:'RJ Barrett',              team:'TOR', pos:'SG'},
+  // GSW Warriors
+  {id:'201939',  name:'Stephen Curry',           team:'GSW', pos:'PG'},
+  {id:'202710',  name:'Jimmy Butler',            team:'GSW', pos:'SF'},
+  // PHX Suns
+  {id:'201142',  name:'Kevin Durant',            team:'HOU', pos:'SF'},
+  {id:'1626164', name:'Devin Booker',            team:'PHX', pos:'SG'},
+  // PHI 76ers
+  {id:'203954',  name:'Joel Embiid',             team:'PHI', pos:'C'},
+  {id:'1630178', name:'Tyrese Maxey',            team:'PHI', pos:'PG'},
+  {id:'202331',  name:'Paul George',             team:'PHI', pos:'SF'},
+  // MEM Grizzlies
+  {id:'1629630', name:'Ja Morant',               team:'MEM', pos:'PG'},
+  {id:'1630217', name:'Desmond Bane',            team:'ORL', pos:'SG'},
+  {id:'201935',  name:'James Harden',            team:'CLE', pos:'PG'},
+  // CLE Cavaliers
+  {id:'1628378', name:'Donovan Mitchell',        team:'CLE', pos:'SG'},
+  {id:'1629636', name:'Darius Garland',          team:'LAC', pos:'PG'},
+  {id:'1630596', name:'Evan Mobley',             team:'CLE', pos:'C'},
+  // IND Pacers
+  {id:'1630169', name:'Tyrese Haliburton',       team:'IND', pos:'PG'},
+  {id:'1627783', name:'Pascal Siakam',           team:'IND', pos:'PF'},
+  // ORL Magic
+  {id:'1631094', name:'Paolo Banchero',          team:'ORL', pos:'PF'},
+  {id:'1630532', name:'Franz Wagner',            team:'ORL', pos:'SF'},
+  // ATL Hawks
+  {id:'1629027', name:'Trae Young',              team:'WAS', pos:'PG'},
+  // MIA Heat
+  {id:'1628389', name:'Bam Adebayo',             team:'MIA', pos:'C'},
+  // SAC Kings
+  {id:'1627734', name:'Domantas Sabonis',        team:'SAC', pos:'C'},
+  {id:'203897',  name:'Zach LaVine',             team:'SAC', pos:'SG'},
+  // HOU Rockets
+  {id:'1630600', name:'Jalen Green',             team:'HOU', pos:'SG'},
+  // NOP Pelicans
+  {id:'1629627', name:'Zion Williamson',         team:'NOP', pos:'PF'},
+  // TOR Raptors
+  {id:'1630567', name:'Scottie Barnes',          team:'TOR', pos:'SF'},
+  // CHA Hornets
+  {id:'1630163', name:'LaMelo Ball',             team:'CHA', pos:'PG'},
+  {id:'1641706', name:'Brandon Miller',          team:'CHA', pos:'SF'},
+];
+
+// Live player list — populated from NBA CDN on init, falls back to static list
+let ALL_PLAYERS = [];
+
+async function loadPlayers() {
+  // Check 24h cache (v3 forces fresh fetch if old version cached)
+  try {
+    const cached = localStorage.getItem('nbaPlayerIndex_v9');
+    if (cached) {
+      const { data, ts } = JSON.parse(cached);
+      if (Date.now() - ts < 28800000) { ALL_PLAYERS = data; return; } // 8h TTL
+    }
+  } catch(e) {}
+  try {
+    const res = await fetch('https://cdn.nba.com/static/json/staticData/playerIndex.json');
+    const raw = await res.json();
+    const h = raw.playerIndex.headers;
+    const idI = h.indexOf('PERSON_ID'), lastI = h.indexOf('PLAYER_LAST_NAME'),
+          firstI = h.indexOf('PLAYER_FIRST_NAME'), teamI = h.indexOf('TEAM_ABBREVIATION'),
+          posI = h.indexOf('POSITION'), statusI = h.indexOf('ROSTER_STATUS'),
+          toYearI = h.indexOf('TO_YEAR'), defunctI = h.indexOf('IS_DEFUNCT');
+    ALL_PLAYERS = raw.playerIndex.data
+      .filter(p => p[statusI] === 1 && p[defunctI] === 0 && p[teamI])
+      .map(p => ({
+        id: String(p[idI]),
+        name: p[firstI] + ' ' + p[lastI],
+        team: p[teamI],
+        pos: (p[posI]||'F').split('-')[0],
+      }))
+      .sort((a,b) => a.name.localeCompare(b.name));
+    localStorage.setItem('nbaPlayerIndex_v9', JSON.stringify({ data: ALL_PLAYERS, ts: Date.now() }));
+  } catch(e) {
+    ALL_PLAYERS = NBA_PLAYERS_FALLBACK;
+  }
+  // Refresh picker if it's open
+  if (document.getElementById('avatarPickerModal')?.classList.contains('open')) filterAvatarPlayers();
+  if (document.getElementById('addPlayerModal')?.classList.contains('open')) filterPlayers();
+}
+
+const SCORING = {pts:1, reb:1.2, ast:1.5, stl:3, blk:3, tov:-1, fg3m:2};
+
+function playerPhoto(id, cls='player-photo') {
+  return `<div class="${cls}"><img src="https://cdn.nba.com/headshots/nba/latest/1040x760/${id}.png"
+    alt="" loading="lazy" onerror="this.style.display='none'"></div>`;
+}
+
+// ==================== STATE ====================
+let state = {
+  members: [], currentMemberId: null,
+  rosters: {}, tasks: [],
+  playerStats: {}, games: [], lastFetch: null,
+};
+
+let pendingChore = null;
+let pendingCompleteTaskId = null;
+let selectedMemberColor = MEMBER_COLORS[0];
+let currentTab = 'home';
+
+// ==================== STATE PERSISTENCE ====================
+function loadState() {
+  try { const s = localStorage.getItem('familyHoops'); if (s) state = {...state, ...JSON.parse(s)}; } catch(e){}
+}
+function saveState() {
+  try { localStorage.setItem('familyHoops', JSON.stringify(state)); } catch(e){}
+}
+
+// ==================== AVATAR ====================
+function memberAvatarHtml(m, size=40) {
+  const initChar = memberInitial(m);
+  const fSize = Math.round(size * 0.38);
+  if (m.pfp?.type === 'upload') {
+    return `<div style="width:${size}px;height:${size}px;border-radius:50%;flex-shrink:0;overflow:hidden;background:${m.color};">
+      <img src="${m.pfp.data}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'">
+    </div>`;
+  }
+  if (m.pfp?.type === 'nba') {
+    // ring fills the wrap, image is inset 3px giving ring effect
+    return `<div class="nba-avatar-wrap" style="width:${size}px;height:${size}px;">
+      <div class="nba-avatar-inner" style="background:${m.color};">
+        <img src="https://cdn.nba.com/headshots/nba/latest/1040x760/${m.pfp.playerId}.png"
+          onerror="this.style.display='none'">
+      </div>
+    </div>`;
+  }
+  return `<div style="width:${size}px;height:${size}px;border-radius:50%;flex-shrink:0;background:${m.color};display:flex;align-items:center;justify-content:center;font-size:${fSize}px;font-weight:900;color:#fff;">${initChar}</div>`;
+}
+
+// ==================== INIT ====================
+function init() {
+  loadState();
+  applyTheme();
+  initColorPicker();
+  loadPlayers();
+  state.playoffTeams = [];
+  fetchPlayoffTeams();
+  if (state.members.length === 0) {
+    showSetup();
+  } else if (!sessionLoggedIn) {
+    showLogin();
+  } else {
+    showApp();
+    startDataFetch();
+  }
+  updateTaskBadge();
+}
+
+function showSetup() {
+  document.getElementById('setupScreen').style.display = 'flex';
+  document.getElementById('appHeader').style.display = 'none';
+  document.getElementById('appTabs').style.display = 'none';
+  document.getElementById('appContent').style.display = 'none';
+  showSetupChoice();
+}
+
+function showSetupChoice() {
+  document.getElementById('setupChoice').style.display = 'flex';
+  document.getElementById('setupCreatePanel').style.display = 'none';
+  document.getElementById('setupJoinPanel').style.display = 'none';
+}
+
+function showCreatePanel() {
+  document.getElementById('setupChoice').style.display = 'none';
+  document.getElementById('setupCreatePanel').style.display = 'flex';
+  document.getElementById('setupJoinPanel').style.display = 'none';
+}
+
+function showJoinPanel() {
+  document.getElementById('setupChoice').style.display = 'none';
+  document.getElementById('setupCreatePanel').style.display = 'none';
+  document.getElementById('setupJoinPanel').style.display = 'flex';
+  document.getElementById('joinName').focus();
+}
+
+function showApp() {
+  document.getElementById('setupScreen').style.display = 'none';
+  document.getElementById('appHeader').style.display = 'flex';
+  document.getElementById('appTabs').style.display = 'flex';
+  document.getElementById('appContent').style.display = 'block';
+  if (!state.currentMemberId && state.members.length > 0) state.currentMemberId = state.members[0].id;
+  checkDailyBonus();
+  updateHeader();
+  switchTab(currentTab);
+  setTimeout(fetchYesterdayStats, 1500);
+}
+
+function checkDailyBonus() {
+  const today = new Date().toDateString();
+  const me = currentMember();
+  if (!me) return;
+  if (state.lastDailyBonus === today) return;
+  state.lastDailyBonus = today;
+  const bonus = 25;
+  me.points = (me.points || 0) + bonus;
+  me.totalEarned = (me.totalEarned || 0) + bonus;
+  saveState();
+  setTimeout(() => showToast('Daily bonus: +' + bonus + ' pts', 'success'), 800);
+}
+
+function finishSetup() {
+  const name = (document.getElementById('setupName')?.value.trim()) || 'Player 1';
+  const pin = (document.getElementById('setupPin')?.value.trim()) || '';
+  if (pin && !/^\d{4}$/.test(pin)) { showToast('PIN must be 4 digits', 'error'); return; }
+  if (state.members.length === 0) {
+    const familyCode = document.getElementById('setupFamilyCode')?.value.trim();
+    if (!familyCode) { showToast('Set a family code so others can join', 'error'); return; }
+    state.familyCode = familyCode;
+    const member = { id:genId(), name, color:'#f6511d', points:1000, totalEarned:1000 };
+    if (setupPfp) member.pfp = setupPfp;
+    if (pin) member.pin = pin;
+    state.members.push(member);
+  } else {
+    const m = state.members[0];
+    m.name = name;
+    if (setupPfp) m.pfp = setupPfp;
+    if (pin) m.pin = pin;
+  }
+  state.currentMemberId = state.members[0].id;
+  sessionLoggedIn = true;
+  saveState();
+  // Hide family code field after first setup
+  const wrap = document.getElementById('familyCodeWrap');
+  if (wrap) wrap.style.display = 'none';
+  showApp();
+  startDataFetch();
+}
+
+function finishJoin() {
+  const name = document.getElementById('joinName')?.value.trim();
+  if (!name) { showToast('Enter your name', 'error'); return; }
+  const pin = document.getElementById('joinPin')?.value.trim() || '';
+  if (pin && !/^\d{4}$/.test(pin)) { showToast('PIN must be 4 digits', 'error'); return; }
+  const code = document.getElementById('joinFamilyCode')?.value.trim();
+  if (!code) { showToast('Enter the family code', 'error'); return; }
+  if (state.familyCode && code !== state.familyCode) { showToast('Wrong family code', 'error'); return; }
+  if (!state.familyCode) state.familyCode = code;
+  const colors = ['#f6511d','#0072bb','#00a878','#7b2d8b','#e4b400','#e63946'];
+  const color = colors[state.members.length % colors.length];
+  const member = { id:genId(), name, color, points:1000, totalEarned:1000 };
+  if (pin) member.pin = pin;
+  state.members.push(member);
+  state.currentMemberId = member.id;
+  sessionLoggedIn = true;
+  saveState();
+  showApp();
+  startDataFetch();
+}
+
+// ==================== SETUP AVATAR ====================
+let setupPfp = null;
+let avatarPickerContext = 'setup'; // 'setup' or a memberId for profile edit
+
+function updateSetupPreview() {
+  const nameEl = document.getElementById('setupName');
+  const preview = document.getElementById('setupAvatarPreview');
+  if (!preview) return;
+  const name = nameEl ? nameEl.value.trim() : '';
+  if (setupPfp?.type === 'upload') {
+    preview.innerHTML = `<img src="${setupPfp.data}" style="width:100%;height:100%;object-fit:cover;">`;
+  } else if (setupPfp?.type === 'nba') {
+    preview.innerHTML = `<img src="https://cdn.nba.com/headshots/nba/latest/1040x760/${setupPfp.playerId}.png"
+      style="width:100%;height:100%;object-fit:cover;object-position:top center;filter:contrast(1.15) brightness(1.02) saturate(0.95);"
+      onerror="this.parentElement.innerHTML='${name?name[0].toUpperCase():'?'}'">`;
+  } else {
+    preview.textContent = name ? name[0].toUpperCase() : '?';
+    preview.style.background = '#f6511d';
+  }
+}
+
+function setupUploadPhoto(input) {
+  const file = input.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    setupPfp = { type: 'upload', data: e.target.result };
+    updateSetupPreview();
+  };
+  reader.readAsDataURL(file);
+}
+
+function editUploadPhoto(input) {
+  const file = input.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    editPfp = { type: 'upload', data: e.target.result };
+    renderEditProfileAvatar();
+  };
+  reader.readAsDataURL(file);
+}
+
+function openAvatarPicker(context) {
+  avatarPickerContext = context;
+  document.getElementById('avatarSearch').value = '';
+  filterAvatarPlayers();
+  closeModal('editProfileModal');
+  openModal('avatarPickerModal');
+}
+
+function filterAvatarPlayers() {
+  const searchEl = document.getElementById('avatarSearch');
+  const q = searchEl ? searchEl.value.toLowerCase() : '';
+  const source = ALL_PLAYERS.length ? ALL_PLAYERS : NBA_PLAYERS_FALLBACK;
+  const unique = source.filter((p,i,a) => a.findIndex(x=>x.id===p.id)===i);
+  const filtered = unique.filter(p => !q || p.name.toLowerCase().includes(q) || p.team.toLowerCase().includes(q));
+  if (!source.length) {
+    document.getElementById('avatarPlayerList').innerHTML =
+      `<div style="color:var(--text2);font-size:0.82rem;padding:20px;grid-column:span 3;text-align:center">
+        Loading players...
+      </div>`;
+    return;
+  }
+  const lastName = n => n.split(' ').slice(-1)[0];
+  let html = filtered.slice(0, 90).map(p => {
+    const safe = p.name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    return `<div class="avatar-pick-card" onclick="selectNBAAvatar('${p.id}','${safe}','${p.team}')">
+      <img class="avatar-pick-img" src="https://cdn.nba.com/headshots/nba/latest/1040x760/${p.id}.png" onerror="this.style.opacity='0.1'">
+      <div style="font-size:0.62rem;font-weight:800;line-height:1.2;overflow:hidden;text-overflow:ellipsis;width:100%;max-width:60px">${lastName(p.name)}</div>
+      <div style="font-size:0.55rem;color:var(--text2)">${p.team}</div>
+    </div>`;
+  }).join('');
+  if (!html) html = '<div style="color:var(--text2);font-size:0.82rem;padding:20px;grid-column:span 3;text-align:center">No players found</div>';
+  document.getElementById('avatarPlayerList').innerHTML = html;
+}
+
+function selectNBAAvatar(playerId, playerName, team) {
+  const pfp = { type:'nba', playerId };
+  if (avatarPickerContext === 'setup') {
+    setupPfp = pfp;
+    updateSetupPreview();
+  } else {
+    const m = state.members.find(x => x.id === avatarPickerContext);
+    if (m) { m.pfp = pfp; saveState(); updateHeader(); renderHome(); }
+  }
+  closeModal('avatarPickerModal');
+  showToast(playerName + ' set as avatar');
+}
+
+// Profile edit
+let editingMemberId = null;
+let editPfp = null;
+let selectedEditColor = MEMBER_COLORS[0];
+
+function openEditProfile(memberId) {
+  editingMemberId = memberId;
+  avatarPickerContext = memberId;
+  const m = state.members.find(x => x.id === memberId);
+  if (!m) return;
+  editPfp = m.pfp || null;
+  selectedEditColor = m.color || MEMBER_COLORS[0];
+  document.getElementById('editProfileName').value = m.name;
+  const pinEl = document.getElementById('editPin');
+  if (pinEl) { pinEl.value = ''; pinEl.placeholder = m.pin ? 'PIN set — enter to change' : 'Set 4-digit PIN'; }
+  renderEditProfileAvatar();
+  renderEditColorPicker();
+  closeModal('switchMemberModal');
+  openModal('editProfileModal');
+}
+
+function renderEditProfileAvatar() {
+  const m = state.members.find(x => x.id === editingMemberId);
+  if (!m) return;
+  const tmp = editPfp ? {...m, pfp: editPfp} : m;
+  document.getElementById('editProfileAvatar').innerHTML = memberAvatarHtml(tmp, 72);
+}
+
+function renderEditColorPicker() {
+  document.getElementById('editColorPicker').innerHTML = MEMBER_COLORS.map(c =>
+    `<div style="width:32px;height:32px;border-radius:50%;background:${c};cursor:pointer;border:3px solid ${c===selectedEditColor?'#fff':'transparent'};transition:all .2s" onclick="selectedEditColor='${c}';renderEditColorPicker()"></div>`
+  ).join('');
+}
+
+function saveProfile() {
+  const m = state.members.find(x => x.id === editingMemberId);
+  if (!m) return;
+  const name = document.getElementById('editProfileName').value.trim();
+  if (!name) { showToast('Enter a name', 'error'); return; }
+  const newPin = (document.getElementById('editPin')?.value || '').trim();
+  if (newPin) {
+    if (!/^\d{4}$/.test(newPin)) { showToast('PIN must be 4 digits', 'error'); return; }
+    m.pin = newPin;
+  }
+  m.name = name;
+  m.color = selectedEditColor;
+  if (editPfp) m.pfp = editPfp;
+  saveState();
+  closeModal('editProfileModal');
+  updateHeader(); renderHome();
+  showToast('Profile saved');
+}
+
+// ==================== HEADER ====================
+function memberInitial(m) { return (m.name||'?')[0].toUpperCase(); }
+
+function updateHeader() {
+  const m = currentMember();
+  if (!m) return;
+  document.getElementById('headerAvatar').innerHTML = memberAvatarHtml(m, 26);
+  document.getElementById('headerName').textContent = m.name;
+  document.getElementById('headerPoints').textContent = (m.points||0).toLocaleString() + ' pts';
+  updateChatBadge();
+}
+
+function currentMember() { return state.members.find(m => m.id === state.currentMemberId) || state.members[0]; }
+function myRoster() { return state.rosters[state.currentMemberId] || []; }
+
+// ==================== TABS ====================
+function switchTab(tab) {
+  currentTab = tab;
+  ['home','team','live','rewards','tasks','predict','chat'].forEach(t => {
+    document.getElementById('view-' + t).classList.toggle('hidden', t !== tab);
+    document.getElementById('tab-' + t).classList.toggle('active', t === tab);
+  });
+  if (tab === 'home')    renderHome();
+  if (tab === 'team')    renderTeam();
+  if (tab === 'live')    renderLive();
+  if (tab === 'rewards') renderRewards();
+  if (tab === 'tasks')   renderTasks();
+  if (tab === 'predict') { renderPredict(); fetchESPNGames(); }
+  if (tab === 'chat')    { renderChat(); clearChatBadge(); }
+  else { const bar = document.getElementById('chatInputBar'); if (bar) bar.style.display = 'none'; }
+}
+
+// ==================== NBA DATA ====================
+async function fetchNBAData() {
+  try {
+    const res = await fetch('https://cdn.nba.com/static/json/liveData/scoreboard/todaysScoreboard_00.json');
+    const data = await res.json();
+    state.games = data.scoreboard?.games || [];
+    state.lastFetch = Date.now();
+    const boxes = await Promise.all(state.games.map(g =>
+      fetch(`https://cdn.nba.com/static/json/liveData/boxscore/boxscore_${g.gameId}.json`).then(r=>r.json()).catch(()=>null)
+    ));
+    boxes.forEach(b => {
+      if (!b?.game) return;
+      [...(b.game.homeTeam?.players||[]), ...(b.game.awayTeam?.players||[])].forEach(p => {
+        if (!p.statistics) return;
+        const s = p.statistics;
+        state.playerStats[String(p.personId)] = {
+          pts:s.points||0, reb:s.reboundsTotal||0, ast:s.assists||0,
+          stl:s.steals||0, blk:s.blocks||0, tov:s.turnovers||0,
+          fg3m:s.threePointersMade||0, fp:calcFP(s), name:p.name
+        };
+      });
+    });
+    awardFantasyPoints(); saveState();
+    if (currentTab==='live') renderLive();
+    if (currentTab==='home') renderHome();
+    updateHeader(); updateTaskBadge();
+  } catch(e) {}
+}
+
+function calcFP(s) {
+  return (s.points||0)*SCORING.pts + (s.reboundsTotal||0)*SCORING.reb + (s.assists||0)*SCORING.ast +
+         (s.steals||0)*SCORING.stl + (s.blocks||0)*SCORING.blk + (s.turnovers||0)*SCORING.tov +
+         (s.threePointersMade||0)*SCORING.fg3m;
+}
+
+function awardFantasyPoints() {
+  const today = new Date().toDateString();
+  if (!state.awardedDate || state.awardedDate !== today) { state.awardedDate = today; state.awardedFP = {}; }
+  state.members.forEach(member => {
+    let earned = 0;
+    (state.rosters[member.id]||[]).forEach(player => {
+      const stats = state.playerStats[String(player.id)];
+      if (!stats) return;
+      const prev = state.awardedFP[member.id+'_'+player.id] || 0;
+      const newFP = Math.max(0, stats.fp - prev);
+      if (newFP > 0) { earned += newFP; state.awardedFP[member.id+'_'+player.id] = stats.fp; }
+    });
+    if (earned > 0) { member.points=(member.points||0)+Math.round(earned); member.totalEarned=(member.totalEarned||0)+Math.round(earned); }
+  });
+}
+
+// ==================== RENDER: HOME ====================
+function renderHome() {
+  const sorted = [...state.members].sort((a,b)=>(b.points||0)-(a.points||0));
+  const me = currentMember();
+  const rankColors = ['#FFD700','#C0C0C0','#CD7F32'];
+  let html = `<div class="card"><div class="card-title">Leaderboard</div>`;
+  sorted.forEach((m,i) => {
+    const isMe = m.id === me?.id;
+    const rank = i < 3 ? `<span class="leader-rank" style="color:${rankColors[i]}">${i+1}</span>`
+                       : `<span class="leader-rank">${i+1}</span>`;
+    const roster = state.rosters[m.id]||[];
+    const topPlayer = roster.map(p=>({p, fp:state.playerStats[String(p.id)]?.fp||0})).sort((a,b)=>b.fp-a.fp)[0];
+    html += `<div class="leader-row">
+      ${rank}
+      ${memberAvatarHtml(m, 40)}
+      <div class="leader-info">
+        <div class="leader-name">${m.name}${isMe?'<span class="you-badge">YOU</span>':''}</div>
+        <div class="leader-sub">${roster.length} players${topPlayer?' · '+topPlayer.p.name.split(' ').slice(-1)[0]:''}</div>
+      </div>
+      <div class="leader-pts">
+        <div class="pts-num">${(m.points||0).toLocaleString()}</div>
+        <div class="pts-label">Family Pts</div>
+      </div>
+    </div>`;
+  });
+  html += `</div>`;
+
+  const allRosterPlayers = state.members.flatMap(m=>(state.rosters[m.id]||[]).map(p=>({...p,owner:m})));
+  const withStats = allRosterPlayers.filter(p=>state.playerStats[String(p.id)]?.fp>0)
+    .sort((a,b)=>(state.playerStats[String(b.id)]?.fp||0)-(state.playerStats[String(a.id)]?.fp||0)).slice(0,5);
+
+  if (withStats.length > 0) {
+    html += `<div class="card"><div class="card-title">Top Performers Today</div>`;
+    withStats.forEach(p => {
+      const s = state.playerStats[String(p.id)];
+      html += `<div class="player-card">
+        ${playerPhoto(p.id)}
+        <div class="player-info">
+          <div class="player-name">${p.name}</div>
+          <div class="player-sub">${p.owner.name}'s team</div>
+          <div class="stats-row">
+            <span class="stat-pill"><b>${s.pts}</b> PTS</span>
+            <span class="stat-pill"><b>${s.reb}</b> REB</span>
+            <span class="stat-pill"><b>${s.ast}</b> AST</span>
+          </div>
+        </div>
+        <div style="text-align:right">
+          <div class="player-fps">${s.fp.toFixed(1)}</div>
+          <div class="player-fps-label">FP</div>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  if (me) {
+    const myTasks = state.tasks.filter(t=>t.assigneeId===me.id&&t.status==='pending');
+    html += `<div class="card" style="border:1px solid ${me.color}44">
+      <div class="card-title">My Stats</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        ${statBox((me.points||0).toLocaleString(),'Balance','var(--gold)')}
+        ${statBox((me.totalEarned||0).toLocaleString(),'All-Time','var(--orange)')}
+        ${statBox((state.rosters[me.id]||[]).length,'Players','var(--blue)')}
+        ${statBox(myTasks.length,'Tasks Pending',myTasks.length>0?'var(--orange)':'var(--green)')}
+      </div>
+      <button onclick="claimYesterdayPoints()" style="margin-top:12px;width:100%;padding:8px;background:var(--card2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:0.78rem;cursor:pointer">Claim Yesterday's Points</button>
+    </div>`;
+  }
+  document.getElementById('view-home').innerHTML = `<div class="desktop-grid">${html}</div>`;
+}
+
+function statBox(val, label, color) {
+  return `<div style="background:var(--surface2);border-radius:10px;padding:12px;text-align:center">
+    <div style="font-size:1.4rem;font-weight:900;color:${color}">${val}</div>
+    <div style="font-size:0.68rem;color:var(--text2);margin-top:2px">${label}</div>
+  </div>`;
+}
+
+// ==================== RENDER: TEAM ====================
+function renderTeam() {
+  const me = currentMember();
+  const roster = myRoster();
+  let html = `<div class="section-header">
+    <h2>${me?.name || 'My'}'s Roster</h2>
+    <button class="btn btn-primary btn-sm" onclick="openAddPlayer()">+ Draft</button>
+  </div>`;
+
+  if (roster.length === 0) {
+    html += `<div class="empty"><p>No players yet. Draft NBA stars to earn family points.</p><button class="btn btn-primary" onclick="openAddPlayer()">Draft Your First Player</button></div>`;
+  } else {
+    let totalFP = 0;
+    roster.forEach(player => {
+      const s = state.playerStats[String(player.id)];
+      const fp = s?.fp || 0;
+      totalFP += fp;
+      html += `<div class="player-card">
+        ${playerPhoto(player.id)}
+        <div class="player-info">
+          <div class="player-name">${player.name}</div>
+          <div class="player-sub">${player.team} · ${player.pos}</div>
+          ${s ? `<div class="stats-row">
+            <span class="stat-pill"><b>${s.pts}</b> PTS</span>
+            <span class="stat-pill"><b>${s.reb}</b> REB</span>
+            <span class="stat-pill"><b>${s.ast}</b> AST</span>
+            <span class="stat-pill"><b>${s.stl}</b> STL</span>
+            <span class="stat-pill"><b>${s.blk}</b> BLK</span>
+          </div>` : '<div class="player-sub" style="margin-top:4px;font-style:italic">No stats today</div>'}
+        </div>
+        <div style="text-align:right">
+          <div class="player-fps">${fp.toFixed(1)}</div>
+          <div class="player-fps-label">FP today</div>
+          <button class="remove-btn" onclick="removePlayer('${player.id}')">x</button>
+        </div>
+      </div>`;
+    });
+    html += `<div class="card" style="text-align:center;border:1px solid var(--gold)44">
+      <div style="font-size:0.72rem;color:var(--text2);margin-bottom:4px;font-weight:700;text-transform:uppercase;letter-spacing:1px">Total Fantasy Points Today</div>
+      <div style="font-size:2rem;font-weight:900;color:var(--gold)">${totalFP.toFixed(1)}</div>
+    </div>`;
+  }
+
+  html += `<div class="card">
+    <div class="card-title">Scoring</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:0.78rem">
+      <div>Points <b style="color:var(--text)">x1.0</b></div>
+      <div>Rebounds <b style="color:var(--text)">x1.2</b></div>
+      <div>Assists <b style="color:var(--text)">x1.5</b></div>
+      <div>Steals <b style="color:var(--text)">x3.0</b></div>
+      <div>Blocks <b style="color:var(--text)">x3.0</b></div>
+      <div>3-Pointers <b style="color:var(--text)">x2.0</b></div>
+      <div style="color:var(--red)">Turnovers <b>x-1.0</b></div>
+    </div>
+  </div>`;
+
+  document.getElementById('view-team').innerHTML = html;
+}
+
+// ==================== RENDER: LIVE ====================
+function renderLive() {
+  const lastFetchStr = state.lastFetch
+    ? `<span class="live-dot"></span>Updated ${Math.round((Date.now()-state.lastFetch)/1000)}s ago`
+    : 'No data yet';
+  let html = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+    <h2 style="font-size:0.95rem;font-weight:900">Live Scores</h2>
+    <div style="display:flex;align-items:center;gap:8px">
+      <span style="font-size:0.7rem;color:var(--text2)">${lastFetchStr}</span>
+      <button class="btn btn-ghost btn-sm" onclick="fetchNBAData().then(()=>renderLive())">Refresh</button>
+    </div>
+  </div>`;
+
+  if (state.games.length === 0) {
+    html += `<div class="empty"><p>No NBA games today, or data unavailable. Check back later.</p></div>`;
+  } else {
+    state.games.forEach(g => {
+      const hTeam = g.homeTeam, aTeam = g.awayTeam;
+      const isLive = g.gameStatus === 2, isFinal = g.gameStatus === 3;
+      const gameTeams = new Set([hTeam.teamTricode, aTeam.teamTricode]);
+      const gamePlayerIds = state.members.flatMap(member =>
+        (state.rosters[member.id]||[]).map(p => ({...p, owner:member, stats:state.playerStats[String(p.id)]}))
+      ).filter(p => p.stats && gameTeams.has(p.team));
+      html += `<div class="game-card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <div style="text-align:center;flex:1">
+            <div style="font-size:0.62rem;color:var(--text2);font-weight:700">AWAY</div>
+            <div style="font-weight:900;font-size:1rem">${aTeam.teamTricode}</div>
+            <div style="font-size:1.6rem;font-weight:900">${aTeam.score||'—'}</div>
+          </div>
+          <div style="text-align:center;padding:0 12px">
+            <div style="font-size:0.7rem;font-weight:800;color:${isLive?'var(--green)':'var(--text2)'}">
+              ${isLive?'<span class="live-dot"></span>LIVE':isFinal?'FINAL':'VS'}
+            </div>
+            <div style="font-size:0.65rem;color:var(--text2)">${g.gameStatusText||''}</div>
+          </div>
+          <div style="text-align:center;flex:1">
+            <div style="font-size:0.62rem;color:var(--text2);font-weight:700">HOME</div>
+            <div style="font-weight:900;font-size:1rem">${hTeam.teamTricode}</div>
+            <div style="font-size:1.6rem;font-weight:900">${hTeam.score||'—'}</div>
+          </div>
+        </div>`;
+      if (gamePlayerIds.length > 0) {
+        html += `<div class="my-players-in-game"><div style="font-size:0.65rem;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:5px;border-top:1px solid var(--border);padding-top:8px">Your Players</div>`;
+        gamePlayerIds.forEach(p => {
+          const s = p.stats;
+          html += `<div class="my-player-stat">
+            <span>${p.name}</span>
+            <span style="color:var(--gold);font-weight:700">${s.pts}/${s.reb}/${s.ast} <span style="color:var(--orange)">${s.fp.toFixed(1)}FP</span></span>
+          </div>`;
+        });
+        html += `</div>`;
+      }
+      html += `</div>`;
+    });
+  }
+  document.getElementById('view-live').innerHTML = html;
+}
+
+// ==================== RENDER: REWARDS ====================
+function renderRewards() {
+  const me = currentMember();
+  const myPts = me?.points || 0;
+  let html = `<div class="card" style="border:1px solid var(--gold)44;margin-bottom:16px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-size:0.72rem;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:0.8px">Your Balance</div>
+        <div style="font-size:2rem;font-weight:900;color:var(--gold)">${myPts.toLocaleString()} pts</div>
+      </div>
+    </div>
+    <div class="progress-bar">
+      <div class="progress-fill" style="width:${Math.min(100,(myPts/500)*100)}%;background:var(--gold)"></div>
+    </div>
+    <div style="font-size:0.68rem;color:var(--text2);margin-top:6px">Earn by drafting active NBA players</div>
+  </div>
+  <div style="font-size:0.72rem;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Chore Marketplace</div>`;
+
+  CHORES.forEach(chore => {
+    const canAfford = myPts >= chore.cost;
+    html += `<div class="chore-card" style="${!canAfford?'opacity:0.55':''}">
+      <div class="chore-tag"><span>${chore.name.split(' ').slice(0,2).join('\n')}</span></div>
+      <div class="chore-info">
+        <div class="chore-name">${chore.name}</div>
+        <div class="chore-desc">${chore.desc}</div>
+      </div>
+      <div class="chore-cost">
+        <div class="chore-pts">${chore.cost}</div>
+        <div class="chore-pts-label">pts</div>
+        <button class="btn btn-primary btn-sm" style="margin-top:6px" ${!canAfford?'disabled':''} onclick="openChoreRequest('${chore.id}')">Use</button>
+      </div>
+    </div>`;
+  });
+
+  document.getElementById('view-rewards').innerHTML = html;
+}
+
+// ==================== RENDER: TASKS ====================
+function renderTasks() {
+  const me = currentMember();
+  const myRequests = state.tasks.filter(t => t.requesterId === me?.id);
+  const assignedToMe = state.tasks.filter(t => t.assigneeId === me?.id);
+  const pendingForMe = assignedToMe.filter(t => t.status === 'pending');
+  const acceptedByMe = assignedToMe.filter(t => t.status === 'accepted');
+  let html = '';
+
+  if (pendingForMe.length > 0) {
+    html += `<div class="card" style="border:1px solid var(--orange)44">
+      <div class="card-title" style="color:var(--orange)">Action Required (${pendingForMe.length})</div>`;
+    pendingForMe.forEach(t => {
+      const chore = CHORES.find(c => c.id === t.choreId);
+      const requester = state.members.find(m => m.id === t.requesterId);
+      html += `<div class="task-card">
+        <div class="task-header">
+          <div class="task-dot" style="background:var(--orange)"></div>
+          <div>
+            <div class="task-name">${chore?.name||t.choreId}</div>
+            <div class="task-meta">Requested by ${requester?.name||'?'} · <span class="status-badge status-pending">Pending</span></div>
+          </div>
+        </div>
+        <div class="task-actions">
+          <button class="btn btn-danger btn-sm" onclick="declineTask('${t.id}')">Decline</button>
+          <button class="btn btn-success btn-sm" style="flex:1" onclick="acceptTask('${t.id}')">Accept</button>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  if (acceptedByMe.length > 0) {
+    html += `<div class="card">
+      <div class="card-title" style="color:var(--blue)">In Progress</div>`;
+    acceptedByMe.forEach(t => {
+      const chore = CHORES.find(c => c.id === t.choreId);
+      const requester = state.members.find(m => m.id === t.requesterId);
+      html += `<div class="task-card" style="border-left-color:var(--blue)">
+        <div class="task-header">
+          <div class="task-dot" style="background:var(--blue)"></div>
+          <div>
+            <div class="task-name">${chore?.name||t.choreId}</div>
+            <div class="task-meta">For ${requester?.name||'?'} · <span class="status-badge status-accepted">Accepted</span></div>
+          </div>
+        </div>
+        <div style="font-size:0.72rem;color:var(--text2)">Waiting for ${requester?.name||'them'} to confirm</div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  if (myRequests.length > 0) {
+    html += `<div class="card"><div class="card-title">My Requests</div>`;
+    myRequests.forEach(t => {
+      const chore = CHORES.find(c => c.id === t.choreId);
+      const assignee = state.members.find(m => m.id === t.assigneeId);
+      const statusText = {pending:'Pending',accepted:'Accepted',completed:'Done',declined:'Declined'}[t.status]||t.status;
+      html += `<div class="task-card ${t.status}">
+        <div class="task-header">
+          <div class="task-dot" style="background:var(--orange)"></div>
+          <div style="flex:1">
+            <div class="task-name">${chore?.name||t.choreId}</div>
+            <div class="task-meta">${assignee?.name||'?'} · ${chore?.cost||0} pts</div>
+          </div>
+          <span class="status-badge status-${t.status}">${statusText}</span>
+        </div>
+        ${t.status==='accepted'?`<button class="btn btn-success btn-sm" onclick="openConfirmComplete('${t.id}')">Mark Done</button>`:''}
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  if (!html) {
+    html = `<div class="empty"><p>No tasks yet. Earn points from NBA games, then spend them in the Shop tab to make others do your chores.</p></div>`;
+  }
+  document.getElementById('view-tasks').innerHTML = html;
+  updateTaskBadge();
+}
+
+function updateTaskBadge() {
+  const me = currentMember();
+  const pending = state.tasks.filter(t => t.assigneeId===me?.id && t.status==='pending').length;
+  const el = document.getElementById('tab-tasks');
+  if (el) el.innerHTML = `Tasks${pending>0?`<span class="notif-dot"></span>`:''}`;
+}
+
+// ==================== PLAYER MANAGEMENT ====================
+function openAddPlayer() {
+  document.getElementById('playerSearch').value = '';
+  // Sync toggle button visual state
+  const btn = document.getElementById('playoffsToggleBtn');
+  if (btn) {
+    btn.style.background = playoffsOnly ? 'var(--orange)' : 'var(--surface2)';
+    btn.style.color = playoffsOnly ? '#fff' : 'var(--text)';
+    btn.style.display = state.playoffTeams?.length > 0 ? '' : 'none';
+  }
+  filterPlayers();
+  openModal('addPlayerModal');
+}
+
+function togglePlayoffsOnly() {
+  playoffsOnly = !playoffsOnly;
+  const btn = document.getElementById('playoffsToggleBtn');
+  if (btn) {
+    btn.style.background = playoffsOnly ? 'var(--orange)' : 'var(--surface2)';
+    btn.style.color = playoffsOnly ? '#fff' : 'var(--text)';
+  }
+  filterPlayers();
+}
+
+function filterPlayers() {
+  const q = document.getElementById('playerSearch').value.toLowerCase();
+  const rosterIds = new Set(myRoster().map(p => p.id));
+  const source = ALL_PLAYERS.length ? ALL_PLAYERS : NBA_PLAYERS_FALLBACK;
+  let unique = source.filter((p,i,a) => a.findIndex(x=>x.id===p.id)===i);
+  // Playoffs filter
+  if (playoffsOnly && state.playoffTeams?.length > 0) {
+    unique = unique.filter(p => state.playoffTeams.includes(p.team));
+  }
+  const filtered = unique.filter(p => !q || p.name.toLowerCase().includes(q) || p.team.toLowerCase().includes(q));
+  let html = '';
+  filtered.slice(0,40).forEach(p => {
+    const onRoster = rosterIds.has(p.id);
+    const fp = state.playerStats[String(p.id)]?.fp;
+    html += `<div class="player-option ${onRoster?'on-roster':''}" onclick="${onRoster?'':'addPlayer(\''+p.id+'\')'}">
+      ${playerPhoto(p.id,'player-photo-sm')}
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:800;font-size:0.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.name}</div>
+        <div style="font-size:0.7rem;color:var(--text2)">${p.team} · ${p.pos}</div>
+      </div>
+      ${fp !== undefined ? `<span style="color:var(--gold);font-weight:800;font-size:0.82rem">${fp.toFixed(1)} FP</span>` : ''}
+      ${onRoster ? '<span style="font-size:0.68rem;color:var(--text2)">On team</span>' : ''}
+    </div>`;
+  });
+  if (!html) html = '<div style="text-align:center;color:var(--text2);padding:20px;font-size:0.85rem">No players found</div>';
+  document.getElementById('playerSearchList').innerHTML = html;
+}
+
+function addPlayer(playerId) {
+  const source = ALL_PLAYERS.length ? ALL_PLAYERS : NBA_PLAYERS_FALLBACK;
+  const player = source.find(p => p.id === playerId);
+  if (!player) return;
+  if (!state.rosters[state.currentMemberId]) state.rosters[state.currentMemberId] = [];
+  const roster = state.rosters[state.currentMemberId];
+  if (roster.find(p => p.id === playerId)) return;
+  if (roster.length >= 8) { showToast('Max 8 players per team', 'error'); return; }
+  roster.push(player); saveState();
+  closeModal('addPlayerModal');
+  showToast(player.name + ' added to your roster', 'success');
+  renderTeam();
+}
+
+function removePlayer(playerId) {
+  state.rosters[state.currentMemberId] = (state.rosters[state.currentMemberId]||[]).filter(p=>p.id!==playerId);
+  saveState(); renderTeam();
+  showToast('Player removed');
+}
+
+// ==================== CHORE SYSTEM ====================
+function openChoreRequest(choreId) {
+  const chore = CHORES.find(c => c.id === choreId);
+  if (!chore) return;
+  const me = currentMember();
+  pendingChore = { choreId, chore, selectedAssigneeId: null };
+  document.getElementById('choreModalTitle').textContent = chore.name;
+  document.getElementById('choreModalDesc').textContent = chore.desc;
+  document.getElementById('choreModalYourPts').textContent = (me?.points||0).toLocaleString() + ' pts';
+  document.getElementById('choreModalCost').textContent = chore.cost + ' pts';
+  const others = state.members.filter(m => m.id !== state.currentMemberId);
+  document.getElementById('choreAssigneePicker').innerHTML = others.length
+    ? others.map(m => `<div class="member-chip" id="chip-${m.id}" onclick="selectAssignee('${m.id}')">
+        <div class="member-initial" style="background:${m.color};width:22px;height:22px;font-size:0.65rem">${memberInitial(m)}</div>
+        <span>${m.name}</span>
+      </div>`).join('')
+    : '<p style="color:var(--text2);font-size:0.82rem">Add more family members to assign chores.</p>';
+  document.getElementById('confirmChoreBtn').disabled = true;
+  openModal('requestChoreModal');
+}
+
+function selectAssignee(memberId) {
+  document.querySelectorAll('.member-chip').forEach(el => el.classList.remove('selected'));
+  document.getElementById('chip-'+memberId)?.classList.add('selected');
+  if (pendingChore) pendingChore.selectedAssigneeId = memberId;
+  document.getElementById('confirmChoreBtn').disabled = false;
+}
+
+function confirmChoreRequest() {
+  if (!pendingChore?.selectedAssigneeId) return;
+  const me = currentMember();
+  const { chore, selectedAssigneeId } = pendingChore;
+  if ((me?.points||0) < chore.cost) { showToast('Not enough points', 'error'); return; }
+  me.points = (me.points||0) - chore.cost;
+  state.tasks.push({ id:genId(), choreId:chore.id, requesterId:state.currentMemberId, assigneeId:selectedAssigneeId, status:'pending', createdAt:Date.now() });
+  saveState(); closeModal('requestChoreModal');
+  showToast('Request sent — ' + chore.cost + ' pts spent', 'success');
+  updateHeader(); updateTaskBadge();
+  if (currentTab==='rewards') renderRewards();
+  if (currentTab==='tasks') renderTasks();
+}
+
+function acceptTask(taskId) {
+  const t = state.tasks.find(t=>t.id===taskId);
+  if (t) { t.status='accepted'; saveState(); }
+  showToast('Task accepted'); renderTasks();
+}
+
+function declineTask(taskId) {
+  const t = state.tasks.find(t=>t.id===taskId);
+  if (t) {
+    t.status = 'declined';
+    const requester = state.members.find(m=>m.id===t.requesterId);
+    const chore = CHORES.find(c=>c.id===t.choreId);
+    if (requester && chore) { requester.points=(requester.points||0)+chore.cost; }
+    saveState();
+  }
+  renderTasks(); updateHeader();
+  showToast('Task declined');
+}
+
+function openConfirmComplete(taskId) {
+  pendingCompleteTaskId = taskId;
+  const t = state.tasks.find(t=>t.id===taskId);
+  const chore = CHORES.find(c=>c.id===t?.choreId);
+  const assignee = state.members.find(m=>m.id===t?.assigneeId);
+  document.getElementById('confirmCompleteDesc').textContent =
+    `Did ${assignee?.name||'they'} actually do "${chore?.name||'the task'}"?`;
+  openModal('confirmCompleteModal');
+}
+
+function confirmComplete() {
+  const t = state.tasks.find(t=>t.id===pendingCompleteTaskId);
+  if (t) { t.status='completed'; t.completedAt=Date.now(); saveState(); }
+  closeModal('confirmCompleteModal');
+  showToast('Task complete — great teamwork', 'success');
+  renderTasks();
+}
+
+// ==================== MEMBER MANAGEMENT ====================
+function openMemberSwitcher() {
+  document.getElementById('switchMemberList').innerHTML = state.members.map(m => {
+    const isActive = m.id === state.currentMemberId;
+    return `<div style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:10px;background:${isActive?'var(--surface2)':'transparent'};margin-bottom:6px">
+      <div style="cursor:pointer;flex:1;display:flex;align-items:center;gap:12px" onclick="switchMember('${m.id}')">
+        ${memberAvatarHtml(m, 44)}
+        <div style="flex:1">
+          <div style="font-weight:800">${m.name} ${isActive?'<span class="you-badge">ACTIVE</span>':''}</div>
+          <div style="font-size:0.72rem;color:var(--text2)">${(m.points||0).toLocaleString()} pts · ${(state.rosters[m.id]||[]).length} players</div>
+        </div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="openEditProfile('${m.id}')">Edit</button>
+    </div>`;
+  }).join('');
+  openModal('switchMemberModal');
+}
+
+function switchMember(id) {
+  state.currentMemberId = id; saveState();
+  closeModal('switchMemberModal');
+  updateHeader(); switchTab(currentTab); updateTaskBadge();
+}
+
+function openAddMemberModal() {
+  selectedMemberColor = MEMBER_COLORS[0];
+  document.getElementById('newMemberName').value = '';
+  initColorPicker();
+  closeModal('switchMemberModal');
+  openModal('addMemberModal');
+}
+
+function saveMember() {
+  const name = document.getElementById('newMemberName').value.trim();
+  if (!name) { showToast('Enter a name', 'error'); return; }
+  // Validate family code
+  const enteredCode = document.getElementById('newMemberFamilyCode')?.value.trim();
+  if (state.familyCode && enteredCode !== state.familyCode) {
+    showToast('Wrong family code', 'error');
+    return;
+  }
+  document.getElementById('newMemberFamilyCode').value = '';
+  const newMember = { id:genId(), name, color:selectedMemberColor, points:1000, totalEarned:1000 };
+  state.members.push(newMember);
+  saveState(); closeModal('addMemberModal');
+  showToast(name + ' added');
+  if (addMemberFromLogin) {
+    addMemberFromLogin = false;
+    completeLogin(newMember.id);
+  } else {
+    openMemberSwitcher(); renderHome();
+  }
+}
+
+function initColorPicker() {
+  const el = document.getElementById('colorPicker');
+  if (!el) return;
+  el.innerHTML = MEMBER_COLORS.map(c =>
+    `<div style="width:32px;height:32px;border-radius:50%;background:${c};cursor:pointer;border:3px solid ${c===selectedMemberColor?'#fff':'transparent'};transition:all .2s" onclick="selectColor('${c}')"></div>`
+  ).join('');
+}
+function selectColor(c) { selectedMemberColor = c; initColorPicker(); }
+
+// ==================== MODALS ====================
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(el => {
+  el.addEventListener('click', e => { if (e.target===el) el.classList.remove('open'); });
+});
+
+// ==================== TOAST ====================
+let toastTimeout;
+function showToast(msg, type='') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `toast show ${type}`;
+  clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+// ==================== UTILS ====================
+function genId() { return Math.random().toString(36).substr(2,9); }
+
+// ==================== PLAYOFFS ====================
+let playoffsOnly = true;
+
+async function fetchPlayoffTeams() {
+  try {
+    // Fetch the last 10 days + next 3 days of playoff games
+    const now = new Date();
+    const s = new Date(now - 10*86400000), e = new Date(now.getTime() + 3*86400000);
+    const fmt = d => d.toISOString().slice(0,10).replace(/-/g,'');
+    const url = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?seasontype=3&dates=${fmt(s)}-${fmt(e)}&limit=100`;
+    const res = await fetch(url);
+    const data = await res.json();
+
+    // Track the most recent game date per team
+    const lastSeen = {};
+    (data.events || []).forEach(ev => {
+      const d = new Date(ev.date);
+      ev.competitions?.[0]?.competitors?.forEach(c => {
+        const t = c.team?.abbreviation;
+        if (t && (!lastSeen[t] || d > lastSeen[t])) lastSeen[t] = d;
+      });
+    });
+
+    // Only keep teams that played within the last 2 days (conference finals games are every 1-2 days)
+    const cutoff = new Date(now - 2*86400000);
+    const active = Object.keys(lastSeen).filter(t => lastSeen[t] >= cutoff);
+    if (active.length > 0) {
+      state.playoffTeams = active;
+      saveState();
+    }
+  } catch(e) {}
+}
+
+// ==================== PREDICT ====================
+let espnGames = [];
+let pendingPred = null;
+
+async function fetchESPNGames() {
+  try {
+    const res = await fetch('https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard');
+    const data = await res.json();
+    espnGames = data.events || [];
+    resolvePredictions();
+    await resolveStalePredictons();
+    saveState();
+    if (currentTab==='predict') renderPredict();
+  } catch(e) {}
+}
+
+// Resolves pending bets whose game is no longer in today's espnGames (e.g. opened app next day)
+async function resolveStalePredictons() {
+  if (!state.predictions) return;
+  const todayIds = new Set(espnGames.map(g => g.id));
+  const stale = state.predictions.filter(p => p.status === 'pending' && !todayIds.has(p.gameId));
+  if (!stale.length) return;
+  let changed = false;
+  await Promise.all(stale.map(async pred => {
+    try {
+      const r = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=${pred.gameId}`);
+      const d = await r.json();
+      const comp = d.header?.competitions?.[0];
+      if (comp?.status?.type?.name !== 'STATUS_FINAL') return;
+      const home = comp.competitors?.find(c => c.homeAway === 'home');
+      const away = comp.competitors?.find(c => c.homeAway === 'away');
+      const hs = parseInt(home?.score)||0, as = parseInt(away?.score)||0;
+      let result = null;
+      if (pred.type === 'moneyline') {
+        result = hs === as ? 'push' : (pred.side === 'home' ? hs > as : as > hs) ? 'won' : 'lost';
+      } else if (pred.type === 'spread') {
+        const adj = hs + (pred.spread||0);
+        if (Math.abs(adj - as) < 0.5) result = 'push';
+        else result = (pred.side === 'home' ? adj > as : as > adj) ? 'won' : 'lost';
+      } else if (pred.type === 'ou') {
+        const total = hs + as, line = pred.overUnder||0;
+        if (Math.abs(total - line) < 0.5) result = 'push';
+        else result = (pred.side === 'over' ? total > line : total < line) ? 'won' : 'lost';
+      }
+      if (!result) return;
+      pred.status = result; pred.resolvedAt = Date.now();
+      const member = state.members.find(m => m.id === pred.memberId);
+      if (!member) return;
+      if (result === 'won') { member.points += pred.potWin; member.totalEarned = (member.totalEarned||0) + pred.potWin; showToast(pred.label + ' — WON +' + pred.potWin + ' pts!', 'success'); }
+      else if (result === 'push') { showToast(pred.label + ' — Push, no change'); }
+      else { member.points -= pred.wager; showToast(pred.label + ' — Lost -' + pred.wager + ' pts', 'error'); }
+      changed = true;
+    } catch(e) {}
+  }));
+  if (changed) { updateHeader(); if (currentTab==='predict') renderPredict(); }
+}
+
+function formatOdds(o) {
+  if (o===null||o===undefined) return 'EVEN';
+  return o > 0 ? '+'+o : String(o);
+}
+function calcPayout(wager, odds) {
+  if (odds > 0) return Math.round(wager * odds / 100);
+  return Math.round(wager * 100 / Math.abs(odds));
+}
+
+function openPredictBet(gameId, side, type, odds, label) {
+  const me = currentMember();
+  if (!me) return;
+  const game = espnGames.find(g=>g.id===gameId);
+  const comp = game?.competitions?.[0];
+  const o = comp?.odds?.[0];
+  pendingPred = {
+    gameId, side, type, odds:odds||-110, label,
+    spread:o?.spread, overUnder:o?.overUnder,
+    homeTeam:comp?.competitors?.find(c=>c.homeAway==='home')?.team?.abbreviation,
+    awayTeam:comp?.competitors?.find(c=>c.homeAway==='away')?.team?.abbreviation,
+  };
+  document.getElementById('predLabel').textContent = label;
+  document.getElementById('predOddsDisplay').textContent = formatOdds(odds||-110);
+  const pendingWagered = (state.predictions||[]).filter(p=>p.memberId===me.id&&p.status==='pending').reduce((s,p)=>s+p.wager,0);
+  const availPts = (me.points||0) - pendingWagered;
+  document.getElementById('predBalance').textContent = availPts.toLocaleString() + ' pts available';
+  document.getElementById('predWager').value = '';
+  document.getElementById('predPotWin').textContent = '—';
+  openModal('predictModal');
+}
+
+function updatePredPotential() {
+  const wager = parseInt(document.getElementById('predWager').value)||0;
+  const win = pendingPred ? calcPayout(wager, pendingPred.odds) : 0;
+  document.getElementById('predPotWin').textContent = win>0 ? '+'+win.toLocaleString()+' pts' : '—';
+}
+
+function setQuickWager(v) {
+  const me = currentMember();
+  const pendingWagered = (state.predictions||[]).filter(p=>p.memberId===me?.id&&p.status==='pending').reduce((s,p)=>s+p.wager,0);
+  const max = Math.max(0, (me?.points||0) - pendingWagered);
+  document.getElementById('predWager').value = v==='all' ? max : Math.min(v, max);
+  updatePredPotential();
+}
+
+function confirmPrediction() {
+  if (!pendingPred) return;
+  const me = currentMember();
+  const wager = parseInt(document.getElementById('predWager').value)||0;
+  if (wager<=0) { showToast('Enter a wager', 'error'); return; }
+  const pendingWagered = (state.predictions||[]).filter(p=>p.memberId===me.id&&p.status==='pending').reduce((s,p)=>s+p.wager,0);
+  if (wager > (me.points||0) - pendingWagered) { showToast('Not enough points', 'error'); return; }
+  const potWin = calcPayout(wager, pendingPred.odds);
+  if (!state.predictions) state.predictions = [];
+  state.predictions.push({
+    id:genId(), memberId:state.currentMemberId, gameId:pendingPred.gameId,
+    side:pendingPred.side, type:pendingPred.type, odds:pendingPred.odds,
+    label:pendingPred.label, wager, potWin, status:'pending', createdAt:Date.now(),
+    homeTeam:pendingPred.homeTeam, awayTeam:pendingPred.awayTeam,
+    spread:pendingPred.spread, overUnder:pendingPred.overUnder,
+  });
+  saveState();
+  closeModal('predictModal');
+  showToast('Locked in: ' + pendingPred.label + ' for ' + wager + ' pts', 'success');
+  updateHeader(); renderPredict();
+}
+
+function resolvePredictions() {
+  if (!state.predictions) return;
+  let changed = false;
+  state.predictions.filter(p=>p.status==='pending').forEach(pred => {
+    const game = espnGames.find(g=>g.id===pred.gameId);
+    if (!game) return;
+    const comp = game.competitions?.[0];
+    if (comp?.status?.type?.name!=='STATUS_FINAL') return;
+    const home = comp.competitors.find(c=>c.homeAway==='home');
+    const away = comp.competitors.find(c=>c.homeAway==='away');
+    const hs=parseInt(home?.score)||0, as=parseInt(away?.score)||0;
+    let result = null;
+    if (pred.type==='moneyline') {
+      if (hs===as) result='push';
+      else result = (pred.side==='home'?hs>as:as>hs)?'won':'lost';
+    } else if (pred.type==='spread') {
+      const adj = hs+(pred.spread||0);
+      if (Math.abs(adj-as)<0.5) result='push';
+      else result = (pred.side==='home'?adj>as:as>adj)?'won':'lost';
+    } else if (pred.type==='ou') {
+      const total=hs+as, line=pred.overUnder||0;
+      if (Math.abs(total-line)<0.5) result='push';
+      else result = (pred.side==='over'?total>line:total<line)?'won':'lost';
+    }
+    if (!result) return;
+    pred.status=result; pred.resolvedAt=Date.now();
+    const member = state.members.find(m=>m.id===pred.memberId);
+    if (!member) return;
+    if (result==='won') { member.points+=pred.potWin; member.totalEarned=(member.totalEarned||0)+pred.potWin; showToast(pred.label+' — WON +'+pred.potWin+' pts!','success'); }
+    else if (result==='push') { showToast(pred.label+' — Push, no change'); }
+    else { member.points-=pred.wager; showToast(pred.label+' — Lost -'+pred.wager+' pts','error'); }
+    changed = true;
+  });
+  if (changed) { saveState(); updateHeader(); }
+}
+
+function renderPredict() {
+  const me = currentMember();
+  const myPreds = (state.predictions||[]).filter(p=>p.memberId===me?.id);
+  const pending = myPreds.filter(p=>p.status==='pending');
+  const recent = [...myPreds.filter(p=>p.status!=='pending')].reverse().slice(0,8);
+  const wins = myPreds.filter(p=>p.status==='won').length;
+  const losses = myPreds.filter(p=>p.status==='lost').length;
+
+  let html = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+    <h2 style="font-size:0.95rem;font-weight:900">Real Odds Predictions</h2>
+    <button class="btn btn-ghost btn-sm" onclick="fetchESPNGames()">Refresh</button>
+  </div>
+  <div class="card" style="border:1px solid var(--gold)44;margin-bottom:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--text2)">Balance</div>
+        <div style="font-size:1.8rem;font-weight:900;color:var(--gold)">${(me?.points||0).toLocaleString()} <span style="font-size:0.85rem">pts</span></div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--text2)">Record</div>
+        <div style="font-size:1.1rem;font-weight:900"><span style="color:var(--green)">${wins}W</span> <span style="color:#444"> - </span> <span style="color:var(--red)">${losses}L</span></div>
+        ${wins+losses>0?`<div style="font-size:0.68rem;color:var(--text2)">${Math.round(wins/(wins+losses)*100)}% hit rate</div>`:''}
+      </div>
+    </div>
+  </div>`;
+
+  if (pending.length > 0) {
+    html += `<div class="card" style="margin-bottom:14px;border:1px solid var(--orange)44">
+      <div class="card-title" style="color:var(--orange)">Active Bets (${pending.length})</div>`;
+    pending.forEach(p => {
+      html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+        <div>
+          <div style="font-weight:800;font-size:0.85rem">${p.label}</div>
+          <div style="font-size:0.68rem;color:var(--text2)">${p.awayTeam||'?'} @ ${p.homeTeam||'?'} · ${formatOdds(p.odds)}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-weight:800;color:var(--gold)">${p.wager} pts</div>
+          <div style="font-size:0.68rem;color:var(--green)">+${p.potWin} to win</div>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  html += `<div style="font-size:0.68rem;font-weight:800;color:var(--text2);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">Today's Games</div>`;
+
+  if (!espnGames || espnGames.length === 0) {
+    html += `<div class="empty"><p>No games loaded yet. Hit Refresh.</p></div>`;
+  } else {
+    espnGames.forEach(game => {
+      const comp = game.competitions?.[0];
+      if (!comp) return;
+      const odds = comp.odds?.[0];
+      const home = comp.competitors?.find(c=>c.homeAway==='home');
+      const away = comp.competitors?.find(c=>c.homeAway==='away');
+      const st = comp.status?.type?.name;
+      const isFinal = st==='STATUS_FINAL', isLive = st==='STATUS_IN_PROGRESS';
+      const timeStr = comp.status?.type?.shortDetail||'';
+      const alreadyBet = pending.some(p=>p.gameId===game.id);
+      const dis = (alreadyBet||isFinal)?'disabled':'';
+
+      html += `<div class="card" style="margin-bottom:12px${isFinal?';opacity:0.6':''}">
+        <div style="display:flex;align-items:center;margin-bottom:12px">
+          <div style="flex:1;text-align:center">
+            <div style="font-size:0.6rem;color:var(--text2);font-weight:700">AWAY</div>
+            <div style="font-size:1rem;font-weight:900">${away?.team?.abbreviation||'?'}</div>
+            ${isLive||isFinal?`<div style="font-size:1.5rem;font-weight:900">${away?.score||0}</div>`:''}
+          </div>
+          <div style="padding:0 14px;text-align:center">
+            <div style="font-size:0.72rem;font-weight:800;color:${isLive?'var(--green)':'var(--text2)'}">${isLive?'LIVE':isFinal?'FINAL':'VS'}</div>
+            <div style="font-size:0.65rem;color:var(--text2)">${timeStr}</div>
+          </div>
+          <div style="flex:1;text-align:center">
+            <div style="font-size:0.6rem;color:var(--text2);font-weight:700">HOME</div>
+            <div style="font-size:1rem;font-weight:900">${home?.team?.abbreviation||'?'}</div>
+            ${isLive||isFinal?`<div style="font-size:1.5rem;font-weight:900">${home?.score||0}</div>`:''}
+          </div>
+        </div>`;
+
+      if (!isFinal && odds) {
+        const sv = odds.spread||0;
+        const hSpread = sv<=0?sv:('+'+sv);
+        const aSpread = sv<=0?('+'+Math.abs(sv)):(-sv);
+        const hSpOdds = odds.homeTeamOdds?.spreadOdds??-110;
+        const aSpOdds = odds.awayTeamOdds?.spreadOdds??-110;
+        const hML = odds.homeTeamOdds?.moneyLine, aML = odds.awayTeamOdds?.moneyLine;
+        const ou = odds.overUnder;
+
+        html += `<div style="margin-bottom:8px">
+          <div style="font-size:0.6rem;font-weight:700;color:var(--text2);letter-spacing:1px;text-transform:uppercase;margin-bottom:5px">Spread</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+            <button class="bet-btn" ${dis} onclick="openPredictBet('${game.id}','away','spread',${aSpOdds},'${away?.team?.abbreviation} ${aSpread}')">
+              <b>${away?.team?.abbreviation} ${aSpread}</b><span style="color:var(--text2);font-size:0.75rem">${formatOdds(aSpOdds)}</span>
+            </button>
+            <button class="bet-btn" ${dis} onclick="openPredictBet('${game.id}','home','spread',${hSpOdds},'${home?.team?.abbreviation} ${hSpread}')">
+              <b>${home?.team?.abbreviation} ${hSpread}</b><span style="color:var(--text2);font-size:0.75rem">${formatOdds(hSpOdds)}</span>
+            </button>
+          </div>
+        </div>`;
+
+        if (hML!=null && aML!=null) {
+          html += `<div style="margin-bottom:8px">
+            <div style="font-size:0.6rem;font-weight:700;color:var(--text2);letter-spacing:1px;text-transform:uppercase;margin-bottom:5px">Moneyline</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+              <button class="bet-btn" ${dis} onclick="openPredictBet('${game.id}','away','moneyline',${aML},'${away?.team?.abbreviation} ML')">
+                <b>${away?.team?.abbreviation}</b><span style="color:${aML>0?'var(--green)':'var(--text2)'};font-size:0.75rem">${formatOdds(aML)}</span>
+              </button>
+              <button class="bet-btn" ${dis} onclick="openPredictBet('${game.id}','home','moneyline',${hML},'${home?.team?.abbreviation} ML')">
+                <b>${home?.team?.abbreviation}</b><span style="color:${hML>0?'var(--green)':'var(--text2)'};font-size:0.75rem">${formatOdds(hML)}</span>
+              </button>
+            </div>
+          </div>`;
+        }
+
+        if (ou) {
+          html += `<div>
+            <div style="font-size:0.6rem;font-weight:700;color:var(--text2);letter-spacing:1px;text-transform:uppercase;margin-bottom:5px">Total (O/U ${ou})</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+              <button class="bet-btn" ${dis} onclick="openPredictBet('${game.id}','over','ou',-110,'Over ${ou}')">
+                <b>Over ${ou}</b><span style="color:var(--text2);font-size:0.75rem">-110</span>
+              </button>
+              <button class="bet-btn" ${dis} onclick="openPredictBet('${game.id}','under','ou',-110,'Under ${ou}')">
+                <b>Under ${ou}</b><span style="color:var(--text2);font-size:0.75rem">-110</span>
+              </button>
+            </div>
+          </div>`;
+        }
+      } else if (!isFinal) {
+        html += `<div>
+          <div style="font-size:0.6rem;font-weight:700;color:var(--text2);letter-spacing:1px;text-transform:uppercase;margin-bottom:5px">Pick Winner</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+            <button class="bet-btn" ${dis} onclick="openPredictBet('${game.id}','away','moneyline',-110,'${away?.team?.abbreviation} to Win')">
+              <b>${away?.team?.abbreviation}</b><span style="color:var(--text2);font-size:0.75rem">EVEN</span>
+            </button>
+            <button class="bet-btn" ${dis} onclick="openPredictBet('${game.id}','home','moneyline',-110,'${home?.team?.abbreviation} to Win')">
+              <b>${home?.team?.abbreviation}</b><span style="color:var(--text2);font-size:0.75rem">EVEN</span>
+            </button>
+          </div>
+        </div>`;
+      }
+
+      if (alreadyBet) html += `<div style="font-size:0.72rem;color:var(--orange);text-align:center;margin-top:10px;font-weight:700">Bet placed on this game</div>`;
+      html += `</div>`;
+    });
+  }
+
+  if (recent.length > 0) {
+    html += `<div class="card"><div class="card-title">Recent Results</div>`;
+    recent.forEach(p => {
+      const color = {won:'var(--green)',lost:'var(--red)',push:'var(--text2)'}[p.status];
+      const diff = p.status==='won'?'+'+p.potWin:p.status==='push'?'0':'-'+p.wager;
+      const label = p.status==='won'?'W':p.status==='push'?'P':'L';
+      html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+        <div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="background:${color}22;color:${color};font-size:0.65rem;font-weight:900;padding:2px 6px;border-radius:4px">${label}</span>
+            <span style="font-size:0.85rem;font-weight:700">${p.label}</span>
+          </div>
+          <div style="font-size:0.68rem;color:var(--text2);margin-top:2px">${p.awayTeam||'?'} @ ${p.homeTeam||'?'} · ${formatOdds(p.odds)} · wagered ${p.wager}</div>
+        </div>
+        <div style="font-weight:900;color:${color}">${diff} pts</div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  document.getElementById('view-predict').innerHTML = html;
+}
+
+// ==================== YESTERDAY STATS ====================
+async function fetchYesterdayStats() {
+  const yesterday = new Date(Date.now() - 86400000);
+  const yesterdayKey = yesterday.toDateString();
+  if (state.awardedYesterday === yesterdayKey) return;
+
+  const dateStr = yesterday.toISOString().slice(0,10).replace(/-/g,'');
+  try {
+    const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${dateStr}`);
+    const data = await res.json();
+    const completedGames = (data.events||[]).filter(e =>
+      e.competitions?.[0]?.status?.type?.name === 'STATUS_FINAL'
+    );
+    if (!completedGames.length) return; // don't lock out — games may not be final yet
+
+    const yesterdayStats = {};
+    await Promise.all(completedGames.map(async game => {
+      try {
+        const sr = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=${game.id}`);
+        const sd = await sr.json();
+        (sd.boxscore?.players||[]).forEach(teamBox => {
+          (teamBox.statistics||[]).forEach(sg => {
+            const lbls = sg.labels||[];
+            const idx = k => lbls.findIndex(l => l.toUpperCase().includes(k));
+            const ptsI=idx('PTS'), rebI=idx('REB'), astI=idx('AST'),
+                  stlI=idx('STL'), blkI=idx('BLK'), toI=idx('TO'),
+                  threeI=lbls.findIndex(l=>l.startsWith('3P'));
+            (sg.athletes||[]).forEach(a => {
+              const name = a.athlete?.displayName;
+              if (!name) return;
+              const s = a.stats||[];
+              if (!s.length || s[ptsI]==='--') return;
+              const parse = i => i>=0 ? (parseFloat(s[i])||0) : 0;
+              const fg3m = threeI>=0 ? (parseInt((s[threeI]||'0').split('-')[0])||0) : 0;
+              yesterdayStats[name.toLowerCase()] = {
+                pts:parse(ptsI), reb:parse(rebI), ast:parse(astI),
+                stl:parse(stlI), blk:parse(blkI), tov:parse(toI), fg3m
+              };
+            });
+          });
+        });
+      } catch(e) {}
+    }));
+
+    let totalAwarded = 0;
+    state.members.forEach(member => {
+      (state.rosters[member.id]||[]).forEach(player => {
+        const st = yesterdayStats[player.name.toLowerCase()];
+        if (!st) return;
+        const fp = Math.round(st.pts*1 + st.reb*1.2 + st.ast*1.5 + st.stl*3 + st.blk*3 + st.tov*(-1) + st.fg3m*2);
+        if (fp <= 0) return;
+        member.points = (member.points||0) + fp;
+        member.totalEarned = (member.totalEarned||0) + fp;
+        totalAwarded += fp;
+      });
+    });
+
+    state.awardedYesterday = yesterdayKey;
+    saveState();
+    if (totalAwarded > 0) {
+      updateHeader();
+      if (currentTab==='home') renderHome();
+      showToast("Yesterday's games: +" + totalAwarded + ' pts awarded!', 'success');
+    }
+  } catch(e) {}
+}
+
+async function claimYesterdayPoints() {
+  delete state.awardedYesterday;
+  saveState();
+  showToast('Fetching yesterday\'s stats…');
+  await fetchYesterdayStats();
+  if (!state.awardedYesterday) showToast('No completed games found yet', 'error');
+  renderHome();
+}
+
+// ==================== THEME ====================
+function applyTheme() {
+  const theme = localStorage.getItem('hoopsTheme') || 'dark';
+  document.documentElement.setAttribute('data-theme', theme);
+}
+function toggleTheme() {
+  const cur = document.documentElement.getAttribute('data-theme') || 'dark';
+  const next = cur === 'dark' ? 'light' : 'dark';
+  localStorage.setItem('hoopsTheme', next);
+  document.documentElement.setAttribute('data-theme', next);
+  showToast(next.charAt(0).toUpperCase() + next.slice(1) + ' mode');
+  if (document.getElementById('switchMemberModal')?.classList.contains('open')) {
+    // no re-render needed, CSS handles it
+  }
+}
+
+// ==================== LOGIN ====================
+let sessionLoggedIn = false;
+let pendingLoginMemberId = null;
+let dataFetchStarted = false;
+let addMemberFromLogin = false;
+
+function showLogin() {
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('setupScreen').style.display = 'none';
+  document.getElementById('appHeader').style.display = 'none';
+  document.getElementById('appTabs').style.display = 'none';
+  document.getElementById('appContent').style.display = 'none';
+  renderLoginScreen();
+}
+
+function memberCardHtml(m) {
+  return `<div onclick="loginAsMember('${m.id}')"
+    style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px 8px;
+      background:var(--surface);border-radius:14px;cursor:pointer;border:2px solid transparent;
+      transition:all .2s;text-align:center;"
+    onmouseover="this.style.borderColor='var(--orange)'"
+    onmouseout="this.style.borderColor='transparent'">
+    ${memberAvatarHtml(m, 52)}
+    <div style="font-weight:800;font-size:0.88rem">${m.name}</div>
+    ${m.pin ? '<div style="font-size:0.6rem;color:var(--text2)">PIN required</div>' : ''}
+  </div>`;
+}
+
+function renderLoginScreen() {
+  const list = document.getElementById('loginMemberList');
+  if (!list) return;
+  // Clear search on fresh render
+  const searchEl = document.getElementById('loginSearch');
+  if (searchEl) searchEl.value = '';
+  document.getElementById('loginAddBtn').style.display = 'none';
+  list.innerHTML = state.members.map(memberCardHtml).join('');
+}
+
+function filterLoginMembers() {
+  const query = (document.getElementById('loginSearch')?.value || '').trim().toLowerCase();
+  const list = document.getElementById('loginMemberList');
+  const addBtn = document.getElementById('loginAddBtn');
+  if (!list) return;
+  if (!query) {
+    list.innerHTML = state.members.map(memberCardHtml).join('');
+    addBtn.style.display = 'none';
+    return;
+  }
+  const matches = state.members.filter(m => m.name.toLowerCase().includes(query));
+  list.innerHTML = matches.map(memberCardHtml).join('');
+  // Show add button only if no exact match exists
+  const exactMatch = state.members.some(m => m.name.toLowerCase() === query);
+  if (!exactMatch) {
+    const rawName = document.getElementById('loginSearch').value.trim();
+    addBtn.textContent = `+ Add "${rawName}"`;
+    addBtn.style.display = 'block';
+  } else {
+    addBtn.style.display = 'none';
+  }
+}
+
+function addMemberFromSearch() {
+  const name = document.getElementById('loginSearch')?.value.trim();
+  if (!name) return;
+  addMemberFromLogin = true;
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('newMemberName').value = name;
+  selectedMemberColor = MEMBER_COLORS[Math.floor(Math.random() * MEMBER_COLORS.length)];
+  initColorPicker();
+  openModal('addMemberModal');
+}
+
+function loginAsMember(id) {
+  const m = state.members.find(x => x.id === id);
+  if (!m) return;
+  if (m.pin) {
+    pendingLoginMemberId = id;
+    document.getElementById('pinModalTitle').textContent = 'PIN for ' + m.name;
+    document.getElementById('pinInput').value = '';
+    document.getElementById('pinError').style.display = 'none';
+    openModal('pinModal');
+  } else {
+    completeLogin(id);
+  }
+}
+
+function submitPin() {
+  const entered = document.getElementById('pinInput').value;
+  const m = state.members.find(x => x.id === pendingLoginMemberId);
+  if (!m) return;
+  if (entered === String(m.pin)) {
+    closeModal('pinModal');
+    completeLogin(pendingLoginMemberId);
+  } else {
+    document.getElementById('pinError').style.display = 'block';
+    document.getElementById('pinInput').value = '';
+    document.getElementById('pinInput').focus();
+  }
+}
+
+function completeLogin(id) {
+  sessionLoggedIn = true;
+  state.currentMemberId = id;
+  saveState();
+  document.getElementById('loginScreen').style.display = 'none';
+  showApp();
+  startDataFetch();
+}
+
+function startDataFetch() {
+  if (dataFetchStarted) return;
+  dataFetchStarted = true;
+  fetchNBAData();
+  fetchESPNGames();
+  setInterval(fetchNBAData, 30000);
+  setInterval(fetchESPNGames, 60000);
+}
+
+function logout() {
+  sessionLoggedIn = false;
+  closeModal('switchMemberModal');
+  showLogin();
+}
+
+function startNewMemberFromLogin() {
+  addMemberFromLogin = true;
+  document.getElementById('loginScreen').style.display = 'none';
+  selectedMemberColor = MEMBER_COLORS[0];
+  document.getElementById('newMemberName').value = '';
+  initColorPicker();
+  openModal('addMemberModal');
+}
+
+// ==================== PIN ====================
+function clearMemberPin() {
+  const m = state.members.find(x => x.id === editingMemberId);
+  if (!m) return;
+  delete m.pin;
+  saveState();
+  const pinEl = document.getElementById('editPin');
+  if (pinEl) { pinEl.value = ''; pinEl.placeholder = 'Set 4-digit PIN'; }
+  showToast('PIN removed');
+}
+
+// ==================== DELETE ACCOUNT ====================
+function openDeleteAccount() {
+  closeModal('editProfileModal');
+  openModal('deleteAccountModal');
+}
+
+function confirmDeleteAccount() {
+  const id = editingMemberId;
+  state.members = state.members.filter(m => m.id !== id);
+  delete state.rosters[id];
+  state.tasks = state.tasks.filter(t => t.requesterId !== id && t.assigneeId !== id);
+  if (state.predictions) state.predictions = state.predictions.filter(p => p.memberId !== id);
+  closeModal('deleteAccountModal');
+  showToast('Account deleted');
+  if (state.members.length === 0) {
+    state.currentMemberId = null;
+    saveState();
+    sessionLoggedIn = false;
+    showSetup();
+  } else {
+    if (state.currentMemberId === id) state.currentMemberId = state.members[0].id;
+    saveState();
+    sessionLoggedIn = false;
+    showLogin();
+  }
+}
+
+// ==================== CHAT ====================
+function renderChat() {
+  const me = currentMember();
+
+  // Lock chat to family members only
+  if (!me || !sessionLoggedIn) {
+    document.getElementById('view-chat').innerHTML = `
+      <div class="empty" style="padding-top:80px">
+        <p style="font-weight:700;margin-bottom:6px;font-size:1.1rem">Family Members Only</p>
+        <p style="font-size:0.82rem;color:var(--text2)">Log in to your family account to view and send messages.</p>
+        <button class="btn btn-primary" style="margin-top:16px" onclick="openMemberSwitcher()">Log In</button>
+      </div>`;
+    const bar = document.getElementById('chatInputBar');
+    if (bar) bar.style.display = 'none';
+    return;
+  }
+
+  const msgs = state.chat || [];
+  let html = `<div style="padding-bottom:70px">`;
+  if (!msgs.length) {
+    html += `<div class="empty" style="padding-top:60px"><p>No messages yet. Start the trash talk.</p></div>`;
+  } else {
+    msgs.forEach(m => {
+      const isMe = m.memberId === me?.id;
+      const sender = state.members.find(x => x.id === m.memberId);
+      const time = new Date(m.ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+      const day = new Date(m.ts).toLocaleDateString([], {month:'short',day:'numeric'});
+      html += `<div class="chat-bubble ${isMe?'mine':''}">
+        ${!isMe ? memberAvatarHtml(sender||{name:'?',color:'#666'}, 32) : ''}
+        <div>
+          ${!isMe ? `<div style="font-size:0.65rem;font-weight:700;color:var(--text2);margin-bottom:3px">${sender?.name||'?'}</div>` : ''}
+          <div class="chat-text">${escapeHtml(m.text)}</div>
+          <div class="chat-meta">${day} ${time}</div>
+        </div>
+      </div>`;
+    });
+  }
+  html += `</div>`;
+  document.getElementById('view-chat').innerHTML = html;
+  // Scroll to bottom
+  const el = document.getElementById('view-chat');
+  el.scrollTop = el.scrollHeight;
+  // Input bar
+  let bar = document.getElementById('chatInputBar');
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'chatInputBar';
+    bar.className = 'chat-input-bar';
+    bar.innerHTML = `<input class="form-input" id="chatInput" placeholder="Say something..." style="flex:1"
+      onkeydown="if(event.key==='Enter')sendChat()" maxlength="200">
+      <button class="btn btn-primary" onclick="sendChat()">Send</button>`;
+    document.getElementById('appContent').appendChild(bar);
+  }
+  bar.style.display = 'flex';
+}
+
+function sendChat() {
+  const input = document.getElementById('chatInput');
+  const text = input?.value.trim();
+  if (!text) return;
+  const me = currentMember();
+  if (!me) return;
+  if (!state.chat) state.chat = [];
+  state.chat.push({ id:genId(), memberId:me.id, text, ts:Date.now() });
+  if (state.chat.length > 200) state.chat = state.chat.slice(-200);
+  input.value = '';
+  saveState();
+  renderChat();
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function clearChatBadge() {
+  const el = document.getElementById('tab-chat');
+  if (el) el.textContent = 'Chat';
+  state.lastChatSeen = (state.chat||[]).length;
+  saveState();
+}
+
+function updateChatBadge() {
+  const total = (state.chat||[]).length;
+  const seen = state.lastChatSeen || 0;
+  const unseen = total - seen;
+  const el = document.getElementById('tab-chat');
+  if (el) el.innerHTML = `Chat${unseen > 0 ? '<span class="notif-dot"></span>' : ''}`;
+}
+
+// ==================== PWA ====================
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  });
+}
+
+// ==================== START ====================
+init();
+</script>
+</body>
+</html>
