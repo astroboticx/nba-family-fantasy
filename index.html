@@ -2253,6 +2253,7 @@ function startDataFetch() {
   dataFetchStarted = true;
   fetchNBAData();
   fetchESPNGames();
+  subscribeToChat();
   setInterval(fetchNBAData, 30000);
   setInterval(fetchESPNGames, 60000);
 }
@@ -2310,37 +2311,58 @@ function confirmDeleteAccount() {
   }
 }
 
-// ==================== CHAT ====================
+// ==================== CHAT (Gun.js real-time) ====================
+let gun = null;
+let chatMessages = [];
+let chatSubscribed = false;
+const CHAT_ROOM = 'familyHoops-astroboticx-chat-v1';
+
+function initGun() {
+  if (gun) return;
+  gun = Gun(['https://gun-manhattan.herokuapp.com/gun', 'https://peer.wallie.io/gun']);
+}
+
+function subscribeToChat() {
+  if (chatSubscribed) return;
+  chatSubscribed = true;
+  initGun();
+  gun.get(CHAT_ROOM).map().on((msg, id) => {
+    if (!msg || typeof msg !== 'object' || !msg.text || !msg.ts) return;
+    const entry = { id, memberId:msg.memberId||'', memberName:msg.memberName||'?', memberColor:msg.memberColor||'#f6511d', text:msg.text, ts:Number(msg.ts) };
+    const idx = chatMessages.findIndex(m => m.id === id);
+    if (idx >= 0) chatMessages[idx] = entry; else chatMessages.push(entry);
+    chatMessages.sort((a,b) => a.ts - b.ts);
+    if (chatMessages.length > 200) chatMessages = chatMessages.slice(-200);
+    if (currentTab === 'chat') renderChat(); else updateChatBadge();
+  });
+}
+
 function renderChat() {
   const me = currentMember();
-
-  // Lock chat to family members only
   if (!me || !sessionLoggedIn) {
     document.getElementById('view-chat').innerHTML = `
       <div class="empty" style="padding-top:80px">
         <p style="font-weight:700;margin-bottom:6px;font-size:1.1rem">Family Members Only</p>
-        <p style="font-size:0.82rem;color:var(--text2)">Log in to your family account to view and send messages.</p>
-        <button class="btn btn-primary" style="margin-top:16px" onclick="openMemberSwitcher()">Log In</button>
+        <p style="font-size:0.82rem;color:var(--text2)">Log in to view messages.</p>
       </div>`;
     const bar = document.getElementById('chatInputBar');
     if (bar) bar.style.display = 'none';
     return;
   }
-
-  const msgs = state.chat || [];
+  subscribeToChat();
   let html = `<div style="padding-bottom:70px">`;
-  if (!msgs.length) {
+  if (!chatMessages.length) {
     html += `<div class="empty" style="padding-top:60px"><p>No messages yet. Start the trash talk.</p></div>`;
   } else {
-    msgs.forEach(m => {
-      const isMe = m.memberId === me?.id;
-      const sender = state.members.find(x => x.id === m.memberId);
+    chatMessages.forEach(m => {
+      const isMe = m.memberId === me.id;
+      const sender = { name: m.memberName, color: m.memberColor };
       const time = new Date(m.ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
       const day = new Date(m.ts).toLocaleDateString([], {month:'short',day:'numeric'});
       html += `<div class="chat-bubble ${isMe?'mine':''}">
-        ${!isMe ? memberAvatarHtml(sender||{name:'?',color:'#666'}, 32) : ''}
+        ${!isMe ? memberAvatarHtml(sender, 32) : ''}
         <div>
-          ${!isMe ? `<div style="font-size:0.65rem;font-weight:700;color:var(--text2);margin-bottom:3px">${sender?.name||'?'}</div>` : ''}
+          ${!isMe ? `<div style="font-size:0.65rem;font-weight:700;color:var(--text2);margin-bottom:3px">${escapeHtml(m.memberName)}</div>` : ''}
           <div class="chat-text">${escapeHtml(m.text)}</div>
           <div class="chat-meta">${day} ${time}</div>
         </div>
@@ -2349,10 +2371,8 @@ function renderChat() {
   }
   html += `</div>`;
   document.getElementById('view-chat').innerHTML = html;
-  // Scroll to bottom
   const el = document.getElementById('view-chat');
   el.scrollTop = el.scrollHeight;
-  // Input bar
   let bar = document.getElementById('chatInputBar');
   if (!bar) {
     bar = document.createElement('div');
@@ -2372,12 +2392,10 @@ function sendChat() {
   if (!text) return;
   const me = currentMember();
   if (!me) return;
-  if (!state.chat) state.chat = [];
-  state.chat.push({ id:genId(), memberId:me.id, text, ts:Date.now() });
-  if (state.chat.length > 200) state.chat = state.chat.slice(-200);
+  initGun();
+  const msgId = genId();
+  gun.get(CHAT_ROOM).get(msgId).put({ memberId:me.id, memberName:me.name, memberColor:me.color||'#f6511d', text, ts:Date.now() });
   input.value = '';
-  saveState();
-  renderChat();
 }
 
 function escapeHtml(s) {
@@ -2387,14 +2405,13 @@ function escapeHtml(s) {
 function clearChatBadge() {
   const el = document.getElementById('tab-chat');
   if (el) el.textContent = 'Chat';
-  state.lastChatSeen = (state.chat||[]).length;
+  state.lastChatSeenTs = Date.now();
   saveState();
 }
 
 function updateChatBadge() {
-  const total = (state.chat||[]).length;
-  const seen = state.lastChatSeen || 0;
-  const unseen = total - seen;
+  const lastSeen = state.lastChatSeenTs || 0;
+  const unseen = chatMessages.filter(m => m.ts > lastSeen).length;
   const el = document.getElementById('tab-chat');
   if (el) el.innerHTML = `Chat${unseen > 0 ? '<span class="notif-dot"></span>' : ''}`;
 }
@@ -2409,5 +2426,6 @@ if ('serviceWorker' in navigator) {
 // ==================== START ====================
 init();
 </script>
+<script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
 </body>
 </html>
