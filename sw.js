@@ -1,4 +1,4 @@
-const CACHE = 'hoops-v1';
+const CACHE = 'hoops-v3';
 const SHELL = ['./index.html', './basketball.gif', './icon.svg'];
 
 self.addEventListener('install', e => {
