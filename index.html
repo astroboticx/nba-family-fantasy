@@ -2505,7 +2505,7 @@ function getChatRoom() { return `familyHoops-${state.familyCode||'default'}-v1`;
 function initGun() {
   if (gun) return;
   if (typeof Gun === 'undefined') { setTimeout(initGun, 300); return; }
-  gun = Gun(['https://gun.eco/gun', 'https://peer.wallie.io/gun']);
+  gun = Gun(['https://gun.eco/gun', 'https://peer.wallie.io/gun', 'https://relay.peer.ooo/gun']);
 }
 
 function subscribeToChat() {
@@ -2538,9 +2538,13 @@ function renderChat() {
     return;
   }
   subscribeToChat();
-  let html = `<div style="padding-bottom:70px">`;
+  const connected = gun !== null;
+  const statusDot = connected ? '🟢' : '🔴';
+  const statusTxt = connected ? `Family code: <b>${state.familyCode||'?'}</b>` : 'Connecting…';
+  let html = `<div style="padding-bottom:70px">
+    <div style="font-size:0.65rem;color:var(--text2);text-align:center;padding:6px 0 10px">${statusDot} ${statusTxt}</div>`;
   if (!chatMessages.length) {
-    html += `<div class="empty" style="padding-top:60px"><p>No messages yet. Start the trash talk.</p></div>`;
+    html += `<div class="empty" style="padding-top:40px"><p>No messages yet. Start the trash talk.</p></div>`;
   } else {
     chatMessages.forEach(m => {
       const isMe = m.memberId === me.id;
@@ -2580,10 +2584,24 @@ function sendChat() {
   if (!text) return;
   const me = currentMember();
   if (!me) return;
-  initGun();
   const msgId = genId();
-  gun.get(getChatRoom()).get(msgId).put({ memberId:me.id, memberName:me.name, memberColor:me.color||'#f6511d', text:censorText(text), ts:Date.now() });
+  const ts = Date.now();
+  const clean = censorText(text);
+  // Show immediately locally
+  const entry = { id:msgId, memberId:me.id, memberName:me.name, memberColor:me.color||'#f6511d', text:clean, ts };
+  chatMessages.push(entry);
+  chatMessages.sort((a,b) => a.ts - b.ts);
+  renderChat();
   input.value = '';
+  // Also push to Gun for other devices
+  if (gun) {
+    gun.get(getChatRoom()).get(msgId).put({ memberId:me.id, memberName:me.name, memberColor:me.color||'#f6511d', text:clean, ts });
+  } else {
+    initGun();
+    setTimeout(() => {
+      if (gun) gun.get(getChatRoom()).get(msgId).put({ memberId:me.id, memberName:me.name, memberColor:me.color||'#f6511d', text:clean, ts });
+    }, 1000);
+  }
 }
 
 function escapeHtml(s) {
