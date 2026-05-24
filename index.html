@@ -2491,6 +2491,7 @@ function copyFamilyCode() {
 }
 
 function resetChatSubscription() {
+  if (chatPollInterval) { clearInterval(chatPollInterval); chatPollInterval = null; }
   subscribedRoom = null;
   chatMessages = [];
   subscribeToChat();
@@ -2500,12 +2501,39 @@ function resetChatSubscription() {
 let gun = null;
 let chatMessages = [];
 let subscribedRoom = null;
+let chatPollInterval = null;
 function getChatRoom() { return `familyHoops-${state.familyCode||'default'}-v1`; }
+function chatCacheKey() { return `hoopsChat-${state.familyCode||'default'}`; }
+
+function saveChatCache() {
+  try { localStorage.setItem(chatCacheKey(), JSON.stringify(chatMessages.slice(-100))); } catch(e) {}
+}
+function loadChatCache() {
+  try {
+    const cached = JSON.parse(localStorage.getItem(chatCacheKey()) || '[]');
+    cached.forEach(entry => {
+      if (!chatMessages.find(m => m.id === entry.id)) chatMessages.push(entry);
+    });
+    chatMessages.sort((a,b) => a.ts - b.ts);
+  } catch(e) {}
+}
 
 function initGun() {
   if (gun) return;
   if (typeof Gun === 'undefined') { setTimeout(initGun, 300); return; }
-  gun = Gun(['https://gun.eco/gun', 'https://peer.wallie.io/gun', 'https://relay.peer.ooo/gun']);
+  // Single relay only — multiple relays cause split-brain (messages go to different servers)
+  gun = Gun('https://gun.eco/gun');
+}
+
+function handleGunMsg(msg, id) {
+  if (!msg || typeof msg !== 'object' || !msg.text || !msg.ts) return;
+  const entry = { id, memberId:msg.memberId||'', memberName:msg.memberName||'?', memberColor:msg.memberColor||'#f6511d', text:msg.text, ts:Number(msg.ts) };
+  const idx = chatMessages.findIndex(m => m.id === id);
+  if (idx >= 0) chatMessages[idx] = entry; else chatMessages.push(entry);
+  chatMessages.sort((a,b) => a.ts - b.ts);
+  if (chatMessages.length > 200) chatMessages = chatMessages.slice(-200);
+  saveChatCache();
+  if (currentTab === 'chat') renderChat(); else updateChatBadge();
 }
 
 function subscribeToChat() {
@@ -2513,16 +2541,13 @@ function subscribeToChat() {
   const room = getChatRoom();
   if (subscribedRoom === room) return;
   subscribedRoom = room;
+  loadChatCache();
   initGun();
-  gun.get(room).map().on((msg, id) => {
-    if (!msg || typeof msg !== 'object' || !msg.text || !msg.ts) return;
-    const entry = { id, memberId:msg.memberId||'', memberName:msg.memberName||'?', memberColor:msg.memberColor||'#f6511d', text:msg.text, ts:Number(msg.ts) };
-    const idx = chatMessages.findIndex(m => m.id === id);
-    if (idx >= 0) chatMessages[idx] = entry; else chatMessages.push(entry);
-    chatMessages.sort((a,b) => a.ts - b.ts);
-    if (chatMessages.length > 200) chatMessages = chatMessages.slice(-200);
-    if (currentTab === 'chat') renderChat(); else updateChatBadge();
-  });
+  // Live subscription
+  gun.get(room).map().on(handleGunMsg);
+  // Poll every 8s to catch anything the live listener missed
+  if (chatPollInterval) clearInterval(chatPollInterval);
+  chatPollInterval = setInterval(() => gun.get(room).map().once(handleGunMsg), 8000);
 }
 
 function renderChat() {
