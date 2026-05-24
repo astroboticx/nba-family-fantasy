@@ -1293,6 +1293,16 @@ function renderTeam() {
   document.getElementById('view-team').innerHTML = html;
 }
 
+// Map NBA tricodes / ESPN abbreviations → ESPN logo CDN slug
+function espnLogoSlug(code) {
+  const MAP = {'SAS':'sa','GSW':'gs','NYK':'ny','NOP':'no','UTA':'utah','WAS':'wsh','BKN':'bkn','SA':'sa','GS':'gs','NY':'ny','NO':'no','WSH':'wsh'};
+  return MAP[code] || (code||'').toLowerCase();
+}
+function teamLogoImg(code, size=46) {
+  const slug = espnLogoSlug(code);
+  return `<img src="https://a.espncdn.com/i/teamlogos/nba/500/${slug}.png" style="width:${size}px;height:${size}px;object-fit:contain" onerror="this.outerHTML='<b>${code}</b>'">`;
+}
+
 // ==================== RENDER: LIVE ====================
 function renderLive() {
   const lastFetchStr = state.lastFetch
@@ -1320,7 +1330,7 @@ function renderLive() {
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
           <div style="text-align:center;flex:1">
             <div style="font-size:0.62rem;color:var(--text2);font-weight:700;margin-bottom:4px">AWAY</div>
-            <img src="https://a.espncdn.com/i/teamlogos/nba/500/${aTeam.teamTricode.toLowerCase()}.png" style="width:46px;height:46px;object-fit:contain" onerror="this.outerHTML='<div style=font-weight:900;font-size:1rem>${aTeam.teamTricode}</div>'">
+            ${teamLogoImg(aTeam.teamTricode)}
             <div style="font-size:1.6rem;font-weight:900;margin-top:2px">${aTeam.score||'—'}</div>
           </div>
           <div style="text-align:center;padding:0 12px">
@@ -1331,7 +1341,7 @@ function renderLive() {
           </div>
           <div style="text-align:center;flex:1">
             <div style="font-size:0.62rem;color:var(--text2);font-weight:700;margin-bottom:4px">HOME</div>
-            <img src="https://a.espncdn.com/i/teamlogos/nba/500/${hTeam.teamTricode.toLowerCase()}.png" style="width:46px;height:46px;object-fit:contain" onerror="this.outerHTML='<div style=font-weight:900;font-size:1rem>${hTeam.teamTricode}</div>'">
+            ${teamLogoImg(hTeam.teamTricode)}
             <div style="font-size:1.6rem;font-weight:900;margin-top:2px">${hTeam.score||'—'}</div>
           </div>
         </div>`;
@@ -1986,7 +1996,7 @@ function renderPredict() {
         <div style="display:flex;align-items:center;margin-bottom:12px">
           <div style="flex:1;text-align:center">
             <div style="font-size:0.6rem;color:var(--text2);font-weight:700;margin-bottom:4px">AWAY</div>
-            <img src="https://a.espncdn.com/i/teamlogos/nba/500/${(away?.team?.abbreviation||'').toLowerCase()}.png" style="width:46px;height:46px;object-fit:contain" onerror="this.outerHTML='<div style=\'font-size:1rem;font-weight:900\'>${away?.team?.abbreviation||'?'}</div>'">
+            ${teamLogoImg(away?.team?.abbreviation||'')}
             ${isLive||isFinal?`<div style="font-size:1.5rem;font-weight:900;margin-top:2px">${away?.score||0}</div>`:''}
           </div>
           <div style="padding:0 14px;text-align:center">
@@ -1995,7 +2005,7 @@ function renderPredict() {
           </div>
           <div style="flex:1;text-align:center">
             <div style="font-size:0.6rem;color:var(--text2);font-weight:700;margin-bottom:4px">HOME</div>
-            <img src="https://a.espncdn.com/i/teamlogos/nba/500/${(home?.team?.abbreviation||'').toLowerCase()}.png" style="width:46px;height:46px;object-fit:contain" onerror="this.outerHTML='<div style=\'font-size:1rem;font-weight:900\'>${home?.team?.abbreviation||'?'}</div>'">
+            ${teamLogoImg(home?.team?.abbreviation||'')}
             ${isLive||isFinal?`<div style="font-size:1.5rem;font-weight:900;margin-top:2px">${home?.score||0}</div>`:''}
           </div>
         </div>`;
