@@ -411,6 +411,10 @@
       <div id="editColorPicker" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
     </div>
     <div class="form-group">
+      <label class="form-label">Avatar Frame</label>
+      <div id="editFramePicker" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+    </div>
+    <div class="form-group">
       <label class="form-label">PIN Lock (optional)</label>
       <div style="display:flex;gap:8px">
         <input class="form-input" id="editPin" type="password" maxlength="4" placeholder="Set 4-digit PIN" inputmode="numeric" style="flex:1">
@@ -635,6 +639,19 @@
 <script>
 // ==================== CONSTANTS ====================
 const MEMBER_COLORS = ['#f6511d','#3498db','#2ecc71','#9b59b6','#e67e22','#e91e63','#1abc9c','#f39c12'];
+const FRAMES = [
+  { id:'none',       name:'None' },
+  { id:'classic',    name:'Classic',    bg:'',                                              pad:3 },
+  { id:'basketball', name:'Basketball', bg:'#e85d04',                                       pad:4, basketball:true },
+  { id:'ant',        name:'Ant',        bg:'linear-gradient(135deg,#236192,#00843d)',        pad:3 },
+  { id:'lebron',     name:'LeBron',     bg:'linear-gradient(135deg,#552583,#fdb927)',        pad:3 },
+  { id:'curry',      name:'Curry',      bg:'linear-gradient(135deg,#1d428a,#ffc72c)',        pad:3 },
+  { id:'luka',       name:'Luka',       bg:'linear-gradient(135deg,#00538c,#c4ced4)',        pad:3 },
+  { id:'jokic',      name:'Jokić',      bg:'linear-gradient(135deg,#0e2240,#fec524)',        pad:3 },
+  { id:'giannis',    name:'Giannis',    bg:'linear-gradient(135deg,#00471b,#eee1c6)',        pad:3 },
+  { id:'sga',        name:'SGA',        bg:'linear-gradient(135deg,#007ac1,#ef3b24)',        pad:3 },
+  { id:'tatum',      name:'Tatum',      bg:'linear-gradient(135deg,#007a33,#ba9653)',        pad:3 },
+];
 
 const CHORES = [
   {id:'feeddog',  name:'Feed the Dog',       cost:300,  desc:'Fill the food and water bowls (~5 min)'},
@@ -793,21 +810,51 @@ function saveState() {
 function memberAvatarHtml(m, size=40) {
   const initChar = memberInitial(m);
   const fSize = Math.round(size * 0.38);
-  if (m.pfp?.type === 'upload') {
-    return `<div style="width:${size}px;height:${size}px;border-radius:50%;flex-shrink:0;overflow:hidden;background:${m.color};">
-      <img src="${m.pfp.data}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'">
-    </div>`;
+  const frameId = m.frame || 'classic';
+  const frame = FRAMES.find(f => f.id === frameId);
+  const pad = frame ? (frame.pad ?? 3) : 3;
+
+  function innerContent() {
+    if (m.pfp?.type === 'upload') return `<img src="${m.pfp.data}" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'">`;
+    if (m.pfp?.type === 'nba') return `<img src="https://cdn.nba.com/headshots/nba/latest/1040x760/${m.pfp.playerId}.png" style="width:100%;height:100%;object-fit:cover;object-position:top center;filter:contrast(1.15) brightness(1.02) saturate(0.95)" onerror="this.style.display='none'">`;
+    return `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:${fSize}px;font-weight:900;color:#fff">${initChar}</div>`;
   }
-  if (m.pfp?.type === 'nba') {
-    // ring fills the wrap, image is inset 3px giving ring effect
+  function innerCircle(sz) {
+    return `<div style="width:${sz}px;height:${sz}px;border-radius:50%;overflow:hidden;background:${m.color};flex-shrink:0">${innerContent()}</div>`;
+  }
+
+  if (frameId === 'none') return innerCircle(size);
+
+  if (frameId === 'classic') {
     return `<div class="nba-avatar-wrap" style="width:${size}px;height:${size}px;">
-      <div class="nba-avatar-inner" style="background:${m.color};">
-        <img src="https://cdn.nba.com/headshots/nba/latest/1040x760/${m.pfp.playerId}.png"
-          onerror="this.style.display='none'">
-      </div>
+      <div class="nba-avatar-inner" style="background:${m.color}">${innerContent()}</div>
     </div>`;
   }
-  return `<div style="width:${size}px;height:${size}px;border-radius:50%;flex-shrink:0;background:${m.color};display:flex;align-items:center;justify-content:center;font-size:${fSize}px;font-weight:900;color:#fff;">${initChar}</div>`;
+
+  const innerSz = size - pad * 2;
+
+  if (frame?.basketball) {
+    const uid = 'b' + (Math.random() * 1e9 | 0).toString(36);
+    const cx = size/2, cy = size/2, r = size/2, ri = r - pad;
+    const sw = Math.max(0.8, size * 0.045).toFixed(1);
+    return `<div style="position:relative;flex-shrink:0;width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center">
+      ${innerCircle(innerSz)}
+      <svg style="position:absolute;inset:0;pointer-events:none" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+        <defs><mask id="${uid}"><rect width="${size}" height="${size}" fill="white"/><circle cx="${cx}" cy="${cy}" r="${ri}" fill="black"/></mask></defs>
+        <circle cx="${cx}" cy="${cy}" r="${r}" fill="#e85d04" mask="url(#${uid})"/>
+        <g mask="url(#${uid})" fill="none" stroke="#1a0800" stroke-width="${sw}" stroke-linecap="round">
+          <line x1="${cx}" y1="0" x2="${cx}" y2="${size}"/>
+          <line x1="0" y1="${cy}" x2="${size}" y2="${cy}"/>
+          <path d="M${cx},0 C${(cx*0.42).toFixed(1)},${(cy*0.28).toFixed(1)} ${(cx*0.28).toFixed(1)},${(cy*0.65).toFixed(1)} ${(cx*0.28).toFixed(1)},${cy} C${(cx*0.28).toFixed(1)},${(cy*1.35).toFixed(1)} ${(cx*0.42).toFixed(1)},${(cy*1.72).toFixed(1)} ${cx},${size}"/>
+          <path d="M${cx},0 C${(cx*1.58).toFixed(1)},${(cy*0.28).toFixed(1)} ${(cx*1.72).toFixed(1)},${(cy*0.65).toFixed(1)} ${(cx*1.72).toFixed(1)},${cy} C${(cx*1.72).toFixed(1)},${(cy*1.35).toFixed(1)} ${(cx*1.58).toFixed(1)},${(cy*1.72).toFixed(1)} ${cx},${size}"/>
+        </g>
+      </svg>
+    </div>`;
+  }
+
+  return `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${frame?.bg||'#f6511d'};display:flex;align-items:center;justify-content:center;flex-shrink:0">
+    ${innerCircle(innerSz)}
+  </div>`;
 }
 
 // ==================== INIT ====================
@@ -1024,6 +1071,7 @@ function selectNBAAvatar(playerId, playerName, team) {
 let editingMemberId = null;
 let editPfp = null;
 let selectedEditColor = MEMBER_COLORS[0];
+let selectedEditFrame = 'classic';
 
 function openEditProfile(memberId) {
   editingMemberId = memberId;
@@ -1032,11 +1080,13 @@ function openEditProfile(memberId) {
   if (!m) return;
   editPfp = m.pfp || null;
   selectedEditColor = m.color || MEMBER_COLORS[0];
+  selectedEditFrame = m.frame || 'classic';
   document.getElementById('editProfileName').value = m.name;
   const pinEl = document.getElementById('editPin');
   if (pinEl) { pinEl.value = ''; pinEl.placeholder = m.pin ? 'PIN set — enter to change' : 'Set 4-digit PIN'; }
   renderEditProfileAvatar();
   renderEditColorPicker();
+  renderFramePicker();
   closeModal('switchMemberModal');
   openModal('editProfileModal');
 }
@@ -1044,8 +1094,47 @@ function openEditProfile(memberId) {
 function renderEditProfileAvatar() {
   const m = state.members.find(x => x.id === editingMemberId);
   if (!m) return;
-  const tmp = editPfp ? {...m, pfp: editPfp} : m;
+  const tmp = {...m, frame: selectedEditFrame};
+  if (editPfp) tmp.pfp = editPfp;
   document.getElementById('editProfileAvatar').innerHTML = memberAvatarHtml(tmp, 72);
+}
+
+function renderFramePicker() {
+  const el = document.getElementById('editFramePicker');
+  if (!el) return;
+  el.innerHTML = FRAMES.map(f => {
+    const sel = f.id === selectedEditFrame;
+    const psz = 34, iSz = psz - (f.pad||0)*2;
+    let preview;
+    if (f.id === 'none') {
+      preview = `<div style="width:${psz}px;height:${psz}px;border-radius:50%;border:2px dashed #555"></div>`;
+    } else if (f.id === 'classic') {
+      preview = `<div class="nba-avatar-wrap" style="width:${psz}px;height:${psz}px"><div class="nba-avatar-inner" style="background:#555"></div></div>`;
+    } else if (f.basketball) {
+      const uid = 'fp'+f.id, cx = psz/2, cy = psz/2, r = psz/2, ri = r - f.pad, sw = Math.max(0.5, psz*0.045).toFixed(1);
+      preview = `<div style="position:relative;width:${psz}px;height:${psz}px">
+        <div style="position:absolute;inset:${f.pad}px;border-radius:50%;background:#555"></div>
+        <svg style="position:absolute;inset:0" width="${psz}" height="${psz}" viewBox="0 0 ${psz} ${psz}">
+          <defs><mask id="${uid}"><rect width="${psz}" height="${psz}" fill="white"/><circle cx="${cx}" cy="${cy}" r="${ri}" fill="black"/></mask></defs>
+          <circle cx="${cx}" cy="${cy}" r="${r}" fill="#e85d04" mask="url(#${uid})"/>
+          <g mask="url(#${uid})" fill="none" stroke="#1a0800" stroke-width="${sw}" stroke-linecap="round">
+            <line x1="${cx}" y1="0" x2="${cx}" y2="${psz}"/><line x1="0" y1="${cy}" x2="${psz}" y2="${cy}"/>
+            <path d="M${cx},0 C${(cx*0.42).toFixed(1)},${(cy*0.28).toFixed(1)} ${(cx*0.28).toFixed(1)},${(cy*0.65).toFixed(1)} ${(cx*0.28).toFixed(1)},${cy} C${(cx*0.28).toFixed(1)},${(cy*1.35).toFixed(1)} ${(cx*0.42).toFixed(1)},${(cy*1.72).toFixed(1)} ${cx},${psz}"/>
+            <path d="M${cx},0 C${(cx*1.58).toFixed(1)},${(cy*0.28).toFixed(1)} ${(cx*1.72).toFixed(1)},${(cy*0.65).toFixed(1)} ${(cx*1.72).toFixed(1)},${cy} C${(cx*1.72).toFixed(1)},${(cy*1.35).toFixed(1)} ${(cx*1.58).toFixed(1)},${(cy*1.72).toFixed(1)} ${cx},${psz}"/>
+          </g>
+        </svg>
+      </div>`;
+    } else {
+      preview = `<div style="width:${psz}px;height:${psz}px;border-radius:50%;background:${f.bg};display:flex;align-items:center;justify-content:center">
+        <div style="width:${iSz}px;height:${iSz}px;border-radius:50%;background:#555"></div>
+      </div>`;
+    }
+    return `<div onclick="selectedEditFrame='${f.id}';renderFramePicker();renderEditProfileAvatar()"
+      style="display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;padding:5px 3px;border-radius:8px;border:2px solid ${sel?'var(--orange)':'transparent'};transition:all .2s;min-width:46px">
+      ${preview}
+      <div style="font-size:0.58rem;font-weight:700;color:${sel?'var(--orange)':'var(--text2)'};text-align:center;line-height:1.2">${f.name}</div>
+    </div>`;
+  }).join('');
 }
 
 function renderEditColorPicker() {
@@ -1066,6 +1155,7 @@ function saveProfile() {
   }
   m.name = name;
   m.color = selectedEditColor;
+  m.frame = selectedEditFrame;
   if (editPfp) m.pfp = editPfp;
   saveState();
   closeModal('editProfileModal');
