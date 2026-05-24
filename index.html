@@ -305,6 +305,7 @@
     .ball-shadow { display:none; }
   </style>
 </head>
+<script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
 <body>
 
 <div class="toast" id="toast"></div>
@@ -2504,10 +2505,12 @@ function getChatRoom() { return `familyHoops-${state.familyCode||'default'}-v1`;
 
 function initGun() {
   if (gun) return;
-  gun = Gun(['https://gun-manhattan.herokuapp.com/gun', 'https://peer.wallie.io/gun']);
+  if (typeof Gun === 'undefined') { setTimeout(initGun, 300); return; }
+  gun = Gun(['https://gun.eco/gun', 'https://peer.wallie.io/gun']);
 }
 
 function subscribeToChat() {
+  if (typeof Gun === 'undefined') { setTimeout(subscribeToChat, 400); return; }
   const room = getChatRoom();
   if (subscribedRoom === room) return;
   subscribedRoom = room;
@@ -2612,6 +2615,5 @@ if ('serviceWorker' in navigator) {
 // ==================== START ====================
 init();
 </script>
-<script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
 </body>
 </html>
