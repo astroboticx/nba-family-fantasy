@@ -954,7 +954,7 @@ function finishSetup() {
   if (wrap) wrap.style.display = 'none';
   showApp();
   startDataFetch();
-  setTimeout(() => pushMemberToGun(state.members[0]), 2000);
+  setTimeout(() => pushMemberToSB(state.members[0]), 2000);
 }
 
 function finishJoin() {
@@ -976,7 +976,7 @@ function finishJoin() {
   saveState();
   showApp();
   startDataFetch();
-  setTimeout(() => pushMemberToGun(member), 2000);
+  setTimeout(() => pushMemberToSB(member), 2000);
 }
 
 // ==================== SETUP AVATAR ====================
@@ -1160,7 +1160,7 @@ function saveProfile() {
   m.frame = selectedEditFrame;
   if (editPfp) m.pfp = editPfp;
   saveState();
-  pushMemberToGun(m);
+  pushMemberToSB(m);
   closeModal('editProfileModal');
   updateHeader(); renderHome();
   showToast('Profile saved');
@@ -2399,10 +2399,10 @@ function startDataFetch() {
   dataFetchStarted = true;
   fetchNBAData();
   fetchESPNGames();
-  subscribeToChat();
+  initSB();
   setInterval(fetchNBAData, 30000);
   setInterval(fetchESPNGames, 60000);
-  setInterval(() => { if (gun && state.familyCode) state.members.forEach(pushMemberToGun); }, 30000);
+  setInterval(() => { if (sb && state.familyCode) state.members.forEach(pushMemberToSB); }, 30000);
 }
 
 function logout() {
@@ -2494,106 +2494,103 @@ function copyFamilyCode() {
   navigator.clipboard?.writeText(state.familyCode).then(() => showToast('Code copied!', 'success')).catch(() => showToast(state.familyCode));
 }
 
-function resetChatSubscription() {
-  if (chatPollInterval) { clearInterval(chatPollInterval); chatPollInterval = null; }
-  subscribedRoom = null;
-  chatMessages = [];
-  subscribeToChat();
-}
 
-// ==================== CHAT (Gun.js real-time) ====================
-let gun = null;
+// ==================== SUPABASE ====================
+const SB_URL = 'https://rfosqthtvkjjzfmvnppz.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmb3NxdGh0dmtqanpmbXZucHB6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2NTU3NzUsImV4cCI6MjA5NTIzMTc3NX0.Z8hpuN39IXU3t0KByMq0Q0SlFOB5PCAoPZfLa9ZfpLY';
+let sb = null;
+let chatChannel = null;
+let memberChannel = null;
 let chatMessages = [];
-let subscribedRoom = null;
-let chatPollInterval = null;
-function getChatRoom() { return `familyHoops-${state.familyCode||'default'}-v1`; }
-function chatCacheKey() { return `hoopsChat-${state.familyCode||'default'}`; }
 
-function saveChatCache() {
-  try { localStorage.setItem(chatCacheKey(), JSON.stringify(chatMessages.slice(-100))); } catch(e) {}
-}
-function loadChatCache() {
-  try {
-    const cached = JSON.parse(localStorage.getItem(chatCacheKey()) || '[]');
-    cached.forEach(entry => {
-      if (!chatMessages.find(m => m.id === entry.id)) chatMessages.push(entry);
-    });
-    chatMessages.sort((a,b) => a.ts - b.ts);
-  } catch(e) {}
+function initSB() {
+  if (sb) return;
+  if (typeof supabase === 'undefined') { setTimeout(initSB, 300); return; }
+  sb = supabase.createClient(SB_URL, SB_KEY);
+  subscribeToChat();
+  subscribeFamilyMembers();
+  state.members.forEach(pushMemberToSB);
 }
 
-function initGun() {
-  if (gun) return;
-  if (typeof Gun === 'undefined') { setTimeout(initGun, 300); return; }
-  // Single relay only — multiple relays cause split-brain (messages go to different servers)
-  gun = Gun('https://gun.eco/gun');
-}
-
-function handleGunMsg(msg, id) {
-  if (!msg || typeof msg !== 'object' || !msg.text || !msg.ts) return;
-  const entry = { id, memberId:msg.memberId||'', memberName:msg.memberName||'?', memberColor:msg.memberColor||'#f6511d', text:msg.text, ts:Number(msg.ts) };
-  const idx = chatMessages.findIndex(m => m.id === id);
-  if (idx >= 0) chatMessages[idx] = entry; else chatMessages.push(entry);
-  chatMessages.sort((a,b) => a.ts - b.ts);
-  if (chatMessages.length > 200) chatMessages = chatMessages.slice(-200);
-  saveChatCache();
+// ==================== CHAT (Supabase real-time) ====================
+async function loadChatHistory() {
+  if (!sb || !state.familyCode) return;
+  const { data } = await sb.from('messages').select('*')
+    .eq('family_code', state.familyCode)
+    .order('created_at', { ascending: true }).limit(100);
+  if (!data) return;
+  chatMessages = data.map(r => ({
+    id: r.id, memberId: r.member_id, memberName: r.member_name,
+    memberColor: r.member_color, text: r.text, ts: new Date(r.created_at).getTime()
+  }));
   if (currentTab === 'chat') renderChat(); else updateChatBadge();
 }
 
 function subscribeToChat() {
-  if (typeof Gun === 'undefined') { setTimeout(subscribeToChat, 400); return; }
-  const room = getChatRoom();
-  if (subscribedRoom === room) return;
-  subscribedRoom = room;
-  loadChatCache();
-  initGun();
-  // Live subscription
-  gun.get(room).map().on(handleGunMsg);
-  // Poll every 8s to catch anything the live listener missed
-  if (chatPollInterval) clearInterval(chatPollInterval);
-  chatPollInterval = setInterval(() => gun.get(room).map().once(handleGunMsg), 8000);
-  // Sync family members
-  subscribeFamilyMembers();
-  state.members.forEach(pushMemberToGun);
+  if (!sb || !state.familyCode || chatChannel) return;
+  loadChatHistory();
+  chatChannel = sb.channel('chat-' + state.familyCode)
+    .on('postgres_changes', { event:'INSERT', schema:'public', table:'messages',
+      filter:'family_code=eq.' + state.familyCode }, payload => {
+      const r = payload.new;
+      if (chatMessages.find(m => m.id === r.id)) return;
+      chatMessages.push({ id:r.id, memberId:r.member_id, memberName:r.member_name,
+        memberColor:r.member_color, text:r.text, ts:new Date(r.created_at).getTime() });
+      chatMessages.sort((a,b) => a.ts - b.ts);
+      if (currentTab === 'chat') renderChat(); else updateChatBadge();
+    }).subscribe();
 }
 
-// ==================== FAMILY MEMBER SYNC ====================
-function memberRoom() { return `hoopsFam-${state.familyCode||'default'}-mbrs`; }
-
-function pushMemberToGun(m) {
-  if (!gun || !state.familyCode) return;
-  const d = { id:m.id, name:m.name, color:m.color||'#f6511d', frame:m.frame||'classic',
-    points:m.points||0, totalEarned:m.totalEarned||0, pin:m.pin||null, ts:Date.now() };
+// ==================== FAMILY MEMBER SYNC (Supabase) ====================
+function pushMemberToSB(m) {
+  if (!sb || !state.familyCode) return;
+  const d = { id:m.id, family_code:state.familyCode, name:m.name, color:m.color||'#f6511d',
+    frame:m.frame||'classic', points:m.points||0, total_earned:m.totalEarned||0,
+    pin:m.pin||null, updated_at:new Date().toISOString() };
   if (m.pfp?.type === 'nba') { d.pfp_type = 'nba'; d.pfp_id = m.pfp.playerId; }
-  gun.get(memberRoom()).get(m.id).put(d);
+  sb.from('members').upsert(d);
+}
+
+function processMemberRow(d) {
+  if (!d?.name) return;
+  const ts = new Date(d.updated_at||0).getTime();
+  const ex = state.members.find(m => m.id === d.id);
+  if (ex) {
+    if (ts > (ex.sbTs||0)) {
+      ex.name=d.name; ex.color=d.color||ex.color; ex.frame=d.frame||ex.frame;
+      if (d.pin) ex.pin=d.pin;
+      if (d.pfp_type==='nba') ex.pfp={type:'nba',playerId:d.pfp_id};
+      if (d.points!=null) ex.points=d.points;
+      if (d.total_earned!=null) ex.totalEarned=d.total_earned;
+      ex.sbTs=ts; saveState(); updateHeader();
+      if (currentTab==='home') renderHome();
+    }
+  } else {
+    const nm = { id:d.id, name:d.name, color:d.color||'#f6511d', frame:d.frame||'classic',
+      points:d.points||1000, totalEarned:d.total_earned||1000, pin:d.pin||null, sbTs:ts };
+    if (d.pfp_type==='nba') nm.pfp={type:'nba',playerId:d.pfp_id};
+    state.members.push(nm);
+    saveState(); updateHeader();
+    if (currentTab==='home') renderHome();
+    showToast(`${d.name} joined the family! 👋`, 'success');
+  }
 }
 
 function subscribeFamilyMembers() {
-  if (!gun || !state.familyCode) return;
-  gun.get(memberRoom()).map().on((d, id) => {
-    if (!d || !d.name) return;
-    const ex = state.members.find(m => m.id === id);
-    if (ex) {
-      if ((d.ts||0) > (ex.gunTs||0)) {
-        ex.name = d.name; ex.color = d.color||ex.color; ex.frame = d.frame||ex.frame;
-        if (d.pin) ex.pin = d.pin;
-        if (d.pfp_type === 'nba') ex.pfp = {type:'nba', playerId:d.pfp_id};
-        if (d.points !== undefined) ex.points = d.points;
-        if (d.totalEarned !== undefined) ex.totalEarned = d.totalEarned;
-        ex.gunTs = d.ts;
-        saveState(); updateHeader();
-        if (currentTab === 'home') renderHome();
-      }
-    } else {
-      const nm = { id, name:d.name, color:d.color||'#f6511d', frame:d.frame||'classic',
-        points:d.points||1000, totalEarned:d.totalEarned||1000, pin:d.pin||null, gunTs:d.ts };
-      if (d.pfp_type === 'nba') nm.pfp = {type:'nba', playerId:d.pfp_id};
-      state.members.push(nm);
-      saveState(); updateHeader();
-      if (currentTab === 'home') renderHome();
-      showToast(`${d.name} is in the family! 👋`, 'success');
-    }
-  });
+  if (!sb || !state.familyCode || memberChannel) return;
+  sb.from('members').select('*').eq('family_code', state.familyCode)
+    .then(({ data }) => data?.forEach(processMemberRow));
+  memberChannel = sb.channel('members-' + state.familyCode)
+    .on('postgres_changes', { event:'*', schema:'public', table:'members',
+      filter:'family_code=eq.' + state.familyCode }, p => processMemberRow(p.new))
+    .subscribe();
+}
+
+function resetChatSubscription() {
+  if (chatChannel) { sb?.removeChannel(chatChannel); chatChannel = null; }
+  if (memberChannel) { sb?.removeChannel(memberChannel); memberChannel = null; }
+  chatMessages = [];
+  if (sb) { subscribeToChat(); subscribeFamilyMembers(); }
 }
 
 function renderChat() {
@@ -2609,9 +2606,8 @@ function renderChat() {
     return;
   }
   subscribeToChat();
-  const connected = gun !== null;
-  const statusDot = connected ? '🟢' : '🔴';
-  const statusTxt = connected ? `Family code: <b>${state.familyCode||'?'}</b>` : 'Connecting…';
+  const statusDot = sb ? '🟢' : '🔴';
+  const statusTxt = sb ? `Family code: <b>${state.familyCode||'?'}</b>` : 'Connecting…';
   let html = `<div style="padding-bottom:70px">
     <div style="font-size:0.65rem;color:var(--text2);text-align:center;padding:6px 0 10px">${statusDot} ${statusTxt}</div>`;
   if (!chatMessages.length) {
@@ -2664,14 +2660,10 @@ function sendChat() {
   chatMessages.sort((a,b) => a.ts - b.ts);
   renderChat();
   input.value = '';
-  // Also push to Gun for other devices
-  if (gun) {
-    gun.get(getChatRoom()).get(msgId).put({ memberId:me.id, memberName:me.name, memberColor:me.color||'#f6511d', text:clean, ts });
-  } else {
-    initGun();
-    setTimeout(() => {
-      if (gun) gun.get(getChatRoom()).get(msgId).put({ memberId:me.id, memberName:me.name, memberColor:me.color||'#f6511d', text:clean, ts });
-    }, 1000);
+  // Push to Supabase for other devices
+  if (sb) {
+    sb.from('messages').insert({ id:msgId, family_code:state.familyCode||'default',
+      member_id:me.id, member_name:me.name, member_color:me.color||'#f6511d', text:clean });
   }
 }
 
@@ -2713,6 +2705,6 @@ if ('serviceWorker' in navigator) {
 // ==================== START ====================
 init();
 </script>
-<script src="https://cdn.jsdelivr.net/npm/gun/gun.js" async></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" async></script>
 </body>
 </html>
