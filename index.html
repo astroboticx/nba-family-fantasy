@@ -471,10 +471,35 @@
     <div class="modal-title">Who's Playing?</div>
     <div id="switchMemberList"></div>
     <button class="btn btn-ghost" style="width:100%;margin-top:12px" onclick="openAddMemberModal()">+ Add Member</button>
+    <div id="familyCodeSection" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)"></div>
     <div style="display:flex;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
       <button class="btn btn-ghost btn-sm" style="flex:1" onclick="toggleTheme()">Toggle Theme</button>
       <button class="btn btn-ghost btn-sm" style="flex:1" onclick="logout()">Log Out</button>
     </div>
+  </div>
+</div>
+
+<!-- MODAL: Make Family -->
+<div class="modal-overlay" id="makeFamilyModal">
+  <div class="modal" style="max-width:340px;text-align:center">
+    <button class="modal-close" onclick="closeModal('makeFamilyModal')">x</button>
+    <div class="modal-title">Your Family Code</div>
+    <div style="font-size:2rem;font-weight:900;letter-spacing:6px;color:var(--orange);margin:16px 0;background:var(--surface2);border-radius:12px;padding:16px" id="displayFamilyCode">—</div>
+    <div style="font-size:0.78rem;color:var(--text2);margin-bottom:16px">Share this code with your family so they can join</div>
+    <button class="btn btn-primary" style="width:100%" onclick="copyFamilyCode()">Copy Code</button>
+  </div>
+</div>
+
+<!-- MODAL: Join Family -->
+<div class="modal-overlay" id="joinFamilyModal">
+  <div class="modal" style="max-width:340px">
+    <button class="modal-close" onclick="closeModal('joinFamilyModal')">x</button>
+    <div class="modal-title">Join a Family</div>
+    <div style="font-size:0.82rem;color:var(--text2);margin-bottom:14px">Enter the family code someone shared with you</div>
+    <input class="form-input" id="joinFamilyCodeInput" placeholder="Enter code..." maxlength="20"
+      style="text-align:center;font-size:1.2rem;font-weight:900;letter-spacing:4px;margin-bottom:14px"
+      onkeydown="if(event.key==='Enter')confirmJoinFamily()">
+    <button class="btn btn-primary" style="width:100%" onclick="confirmJoinFamily()">Join Family</button>
   </div>
 </div>
 
@@ -1604,6 +1629,24 @@ function confirmComplete() {
 
 // ==================== MEMBER MANAGEMENT ====================
 function openMemberSwitcher() {
+  // Family code section
+  const fc = document.getElementById('familyCodeSection');
+  if (fc) {
+    if (state.familyCode) {
+      fc.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;background:var(--surface2);border-radius:10px;padding:10px 14px">
+        <div>
+          <div style="font-size:0.62rem;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.8px">Family Code</div>
+          <div style="font-weight:900;font-size:1.1rem;letter-spacing:3px;color:var(--orange)">${state.familyCode}</div>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="copyFamilyCode()">Copy</button>
+      </div>`;
+    } else {
+      fc.innerHTML = `<div style="display:flex;gap:8px">
+        <button class="btn btn-primary btn-sm" style="flex:1" onclick="openMakeFamily()">Make Family</button>
+        <button class="btn btn-ghost btn-sm" style="flex:1" onclick="openJoinFamily()">Join Family</button>
+      </div>`;
+    }
+  }
   document.getElementById('switchMemberList').innerHTML = state.members.map(m => {
     const isActive = m.id === state.currentMemberId;
     return `<div style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:10px;background:${isActive?'var(--surface2)':'transparent'};margin-bottom:6px">
@@ -2311,11 +2354,53 @@ function confirmDeleteAccount() {
   }
 }
 
+// ==================== FAMILY CODE ====================
+function openMakeFamily() {
+  if (!state.familyCode) {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let code = '';
+    for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+    state.familyCode = code;
+    saveState();
+    resetChatSubscription();
+  }
+  document.getElementById('displayFamilyCode').textContent = state.familyCode;
+  closeModal('switchMemberModal');
+  openModal('makeFamilyModal');
+}
+
+function openJoinFamily() {
+  document.getElementById('joinFamilyCodeInput').value = '';
+  closeModal('switchMemberModal');
+  openModal('joinFamilyModal');
+}
+
+function confirmJoinFamily() {
+  const code = document.getElementById('joinFamilyCodeInput').value.trim().toUpperCase();
+  if (!code) { showToast('Enter a code', 'error'); return; }
+  state.familyCode = code;
+  saveState();
+  resetChatSubscription();
+  closeModal('joinFamilyModal');
+  showToast('Joined family!', 'success');
+}
+
+function copyFamilyCode() {
+  if (!state.familyCode) return;
+  navigator.clipboard?.writeText(state.familyCode).then(() => showToast('Code copied!', 'success')).catch(() => showToast(state.familyCode));
+}
+
+function resetChatSubscription() {
+  subscribedRoom = null;
+  chatMessages = [];
+  subscribeToChat();
+}
+
 // ==================== CHAT (Gun.js real-time) ====================
 let gun = null;
 let chatMessages = [];
-let chatSubscribed = false;
-const CHAT_ROOM = 'familyHoops-astroboticx-chat-v1';
+let subscribedRoom = null;
+function getChatRoom() { return `familyHoops-${state.familyCode||'default'}-v1`; }
 
 function initGun() {
   if (gun) return;
@@ -2323,10 +2408,11 @@ function initGun() {
 }
 
 function subscribeToChat() {
-  if (chatSubscribed) return;
-  chatSubscribed = true;
+  const room = getChatRoom();
+  if (subscribedRoom === room) return;
+  subscribedRoom = room;
   initGun();
-  gun.get(CHAT_ROOM).map().on((msg, id) => {
+  gun.get(room).map().on((msg, id) => {
     if (!msg || typeof msg !== 'object' || !msg.text || !msg.ts) return;
     const entry = { id, memberId:msg.memberId||'', memberName:msg.memberName||'?', memberColor:msg.memberColor||'#f6511d', text:msg.text, ts:Number(msg.ts) };
     const idx = chatMessages.findIndex(m => m.id === id);
@@ -2394,7 +2480,7 @@ function sendChat() {
   if (!me) return;
   initGun();
   const msgId = genId();
-  gun.get(CHAT_ROOM).get(msgId).put({ memberId:me.id, memberName:me.name, memberColor:me.color||'#f6511d', text, ts:Date.now() });
+  gun.get(getChatRoom()).get(msgId).put({ memberId:me.id, memberName:me.name, memberColor:me.color||'#f6511d', text, ts:Date.now() });
   input.value = '';
 }
 
