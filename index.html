@@ -2551,7 +2551,7 @@ function renderChat() {
         ${!isMe ? memberAvatarHtml(sender, 32) : ''}
         <div>
           ${!isMe ? `<div style="font-size:0.65rem;font-weight:700;color:var(--text2);margin-bottom:3px">${escapeHtml(m.memberName)}</div>` : ''}
-          <div class="chat-text">${escapeHtml(m.text)}</div>
+          <div class="chat-text">${escapeHtml(censorText(m.text))}</div>
           <div class="chat-meta">${day} ${time}</div>
         </div>
       </div>`;
@@ -2582,12 +2582,22 @@ function sendChat() {
   if (!me) return;
   initGun();
   const msgId = genId();
-  gun.get(getChatRoom()).get(msgId).put({ memberId:me.id, memberName:me.name, memberColor:me.color||'#f6511d', text, ts:Date.now() });
+  gun.get(getChatRoom()).get(msgId).put({ memberId:me.id, memberName:me.name, memberColor:me.color||'#f6511d', text:censorText(text), ts:Date.now() });
   input.value = '';
 }
 
 function escapeHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+const BAD_WORDS = ['fuck','shit','ass','bitch','damn','crap','piss','dick','cock','pussy','cunt','bastard','hell','nigga','nigger','fag','faggot','slut','whore','retard','rape','kill yourself','kys','wtf','stfu','idiot','stupid'];
+function censorText(s) {
+  let out = s;
+  BAD_WORDS.forEach(w => {
+    const re = new RegExp('\\b' + w.replace(/ /g,'\\s+') + '\\b', 'gi');
+    out = out.replace(re, m => m[0] + '*'.repeat(m.length - 1));
+  });
+  return out;
 }
 
 function clearChatBadge() {
