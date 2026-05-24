@@ -954,6 +954,7 @@ function finishSetup() {
   if (wrap) wrap.style.display = 'none';
   showApp();
   startDataFetch();
+  setTimeout(() => pushMemberToGun(state.members[0]), 2000);
 }
 
 function finishJoin() {
@@ -975,6 +976,7 @@ function finishJoin() {
   saveState();
   showApp();
   startDataFetch();
+  setTimeout(() => pushMemberToGun(member), 2000);
 }
 
 // ==================== SETUP AVATAR ====================
@@ -1158,6 +1160,7 @@ function saveProfile() {
   m.frame = selectedEditFrame;
   if (editPfp) m.pfp = editPfp;
   saveState();
+  pushMemberToGun(m);
   closeModal('editProfileModal');
   updateHeader(); renderHome();
   showToast('Profile saved');
@@ -2399,6 +2402,7 @@ function startDataFetch() {
   subscribeToChat();
   setInterval(fetchNBAData, 30000);
   setInterval(fetchESPNGames, 60000);
+  setInterval(() => { if (gun && state.familyCode) state.members.forEach(pushMemberToGun); }, 30000);
 }
 
 function logout() {
@@ -2548,6 +2552,48 @@ function subscribeToChat() {
   // Poll every 8s to catch anything the live listener missed
   if (chatPollInterval) clearInterval(chatPollInterval);
   chatPollInterval = setInterval(() => gun.get(room).map().once(handleGunMsg), 8000);
+  // Sync family members
+  subscribeFamilyMembers();
+  state.members.forEach(pushMemberToGun);
+}
+
+// ==================== FAMILY MEMBER SYNC ====================
+function memberRoom() { return `hoopsFam-${state.familyCode||'default'}-mbrs`; }
+
+function pushMemberToGun(m) {
+  if (!gun || !state.familyCode) return;
+  const d = { id:m.id, name:m.name, color:m.color||'#f6511d', frame:m.frame||'classic',
+    points:m.points||0, totalEarned:m.totalEarned||0, pin:m.pin||null, ts:Date.now() };
+  if (m.pfp?.type === 'nba') { d.pfp_type = 'nba'; d.pfp_id = m.pfp.playerId; }
+  gun.get(memberRoom()).get(m.id).put(d);
+}
+
+function subscribeFamilyMembers() {
+  if (!gun || !state.familyCode) return;
+  gun.get(memberRoom()).map().on((d, id) => {
+    if (!d || !d.name) return;
+    const ex = state.members.find(m => m.id === id);
+    if (ex) {
+      if ((d.ts||0) > (ex.gunTs||0)) {
+        ex.name = d.name; ex.color = d.color||ex.color; ex.frame = d.frame||ex.frame;
+        if (d.pin) ex.pin = d.pin;
+        if (d.pfp_type === 'nba') ex.pfp = {type:'nba', playerId:d.pfp_id};
+        if (d.points !== undefined) ex.points = d.points;
+        if (d.totalEarned !== undefined) ex.totalEarned = d.totalEarned;
+        ex.gunTs = d.ts;
+        saveState(); updateHeader();
+        if (currentTab === 'home') renderHome();
+      }
+    } else {
+      const nm = { id, name:d.name, color:d.color||'#f6511d', frame:d.frame||'classic',
+        points:d.points||1000, totalEarned:d.totalEarned||1000, pin:d.pin||null, gunTs:d.ts };
+      if (d.pfp_type === 'nba') nm.pfp = {type:'nba', playerId:d.pfp_id};
+      state.members.push(nm);
+      saveState(); updateHeader();
+      if (currentTab === 'home') renderHome();
+      showToast(`${d.name} is in the family! 👋`, 'success');
+    }
+  });
 }
 
 function renderChat() {
