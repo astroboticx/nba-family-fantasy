@@ -1319,9 +1319,9 @@ function renderLive() {
       html += `<div class="game-card">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
           <div style="text-align:center;flex:1">
-            <div style="font-size:0.62rem;color:var(--text2);font-weight:700">AWAY</div>
-            <div style="font-weight:900;font-size:1rem">${aTeam.teamTricode}</div>
-            <div style="font-size:1.6rem;font-weight:900">${aTeam.score||'—'}</div>
+            <div style="font-size:0.62rem;color:var(--text2);font-weight:700;margin-bottom:4px">AWAY</div>
+            <img src="https://a.espncdn.com/i/teamlogos/nba/500/${aTeam.teamTricode.toLowerCase()}.png" style="width:46px;height:46px;object-fit:contain" onerror="this.outerHTML='<div style=font-weight:900;font-size:1rem>${aTeam.teamTricode}</div>'">
+            <div style="font-size:1.6rem;font-weight:900;margin-top:2px">${aTeam.score||'—'}</div>
           </div>
           <div style="text-align:center;padding:0 12px">
             <div style="font-size:0.7rem;font-weight:800;color:${isLive?'var(--green)':'var(--text2)'}">
@@ -1330,9 +1330,9 @@ function renderLive() {
             <div style="font-size:0.65rem;color:var(--text2)">${g.gameStatusText||''}</div>
           </div>
           <div style="text-align:center;flex:1">
-            <div style="font-size:0.62rem;color:var(--text2);font-weight:700">HOME</div>
-            <div style="font-weight:900;font-size:1rem">${hTeam.teamTricode}</div>
-            <div style="font-size:1.6rem;font-weight:900">${hTeam.score||'—'}</div>
+            <div style="font-size:0.62rem;color:var(--text2);font-weight:700;margin-bottom:4px">HOME</div>
+            <img src="https://a.espncdn.com/i/teamlogos/nba/500/${hTeam.teamTricode.toLowerCase()}.png" style="width:46px;height:46px;object-fit:contain" onerror="this.outerHTML='<div style=font-weight:900;font-size:1rem>${hTeam.teamTricode}</div>'">
+            <div style="font-size:1.6rem;font-weight:900;margin-top:2px">${hTeam.score||'—'}</div>
           </div>
         </div>`;
       if (gamePlayerIds.length > 0) {
