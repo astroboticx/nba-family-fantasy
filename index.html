@@ -1286,6 +1286,7 @@ function saveProfile() {
   if (editPfp) m.pfp = editPfp;
   saveState();
   pushMemberToSB(m);
+  broadcastMember(m);
   closeModal('editProfileModal');
   updateHeader(); renderHome();
   showToast('Profile saved');
@@ -2828,15 +2829,13 @@ function subscribeToChat() {
   if (!sb || !state.familyCode || chatChannel) return;
   loadChatHistory();
   chatChannel = sb.channel('chat-' + state.familyCode)
-    .on('postgres_changes', { event:'INSERT', schema:'public', table:'messages',
-      filter:'family_code=eq.' + state.familyCode }, payload => {
-      const r = payload.new;
-      if (chatMessages.find(m => m.id === r.id)) return;
-      chatMessages.push({ id:r.id, memberId:r.member_id, memberName:r.member_name,
-        memberColor:r.member_color, text:r.text, ts:new Date(r.created_at).getTime() });
+    .on('broadcast', { event: 'msg' }, ({ payload }) => {
+      if (!payload || chatMessages.find(m => m.id === payload.id)) return;
+      chatMessages.push(payload);
       chatMessages.sort((a,b) => a.ts - b.ts);
       if (currentTab === 'chat') renderChat(); else updateChatBadge();
-    }).subscribe();
+    })
+    .subscribe();
 }
 
 // ==================== FAMILY MEMBER SYNC (Supabase) ====================
@@ -2879,9 +2878,19 @@ function subscribeFamilyMembers() {
   sb.from('members').select('*').eq('family_code', state.familyCode)
     .then(({ data }) => data?.forEach(processMemberRow));
   memberChannel = sb.channel('members-' + state.familyCode)
-    .on('postgres_changes', { event:'*', schema:'public', table:'members',
-      filter:'family_code=eq.' + state.familyCode }, p => processMemberRow(p.new))
+    .on('broadcast', { event: 'member' }, ({ payload }) => {
+      if (payload) processMemberRow(payload);
+    })
     .subscribe();
+}
+
+function broadcastMember(m) {
+  if (!sb || !memberChannel || !state.familyCode) return;
+  const d = { id:m.id, family_code:state.familyCode, name:m.name, color:m.color||'#f6511d',
+    frame:m.frame||'classic', points:m.points||0, total_earned:m.totalEarned||0,
+    pin:m.pin||null, updated_at:new Date().toISOString() };
+  if (m.pfp?.type === 'nba') { d.pfp_type = 'nba'; d.pfp_id = m.pfp.playerId; }
+  memberChannel.send({ type:'broadcast', event:'member', payload: d });
 }
 
 function resetChatSubscription() {
@@ -2958,10 +2967,14 @@ function sendChat() {
   chatMessages.sort((a,b) => a.ts - b.ts);
   renderChat();
   input.value = '';
-  // Push to Supabase for other devices
+  // Broadcast to other devices in real-time + persist to DB
+  if (sb && chatChannel) {
+    chatChannel.send({ type:'broadcast', event:'msg', payload: entry });
+  }
   if (sb) {
     sb.from('messages').insert({ id:msgId, family_code:state.familyCode||'default',
-      member_id:me.id, member_name:me.name, member_color:me.color||'#f6511d', text:clean });
+      member_id:me.id, member_name:me.name, member_color:me.color||'#f6511d', text:clean,
+      created_at: new Date(ts).toISOString() });
   }
 }
 
