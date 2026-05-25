@@ -1,4 +1,4 @@
-const CACHE = 'hoops-v9';
+const CACHE = 'hoops-v10';
 const SHELL = ['./index.html', './basketball.gif', './icon.svg'];
 
 self.addEventListener('install', e => {
@@ -10,7 +10,11 @@ self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys().then(keys =>
       Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
-    ).then(() => clients.claim())
+    ).then(() => clients.claim()).then(() =>
+      clients.matchAll({ type: 'window' }).then(wins =>
+        Promise.all(wins.map(w => w.navigate(w.url)))
+      )
+    )
   );
 });
 
