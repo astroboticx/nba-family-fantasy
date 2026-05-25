@@ -270,7 +270,7 @@
     .chat-bubble.mine .chat-text { background:var(--orange); color:#fff; border-bottom-right-radius:4px; }
     .chat-meta { font-size:0.6rem; color:var(--text2); margin-top:3px; }
     .chat-bubble.mine .chat-meta { text-align:right; }
-    .chat-input-bar { position:fixed; bottom:0; left:0; right:0; background:var(--surface); border-top:1px solid var(--border); padding:10px 16px; display:flex; gap:8px; z-index:99; }
+    .chat-input-bar { position:fixed; bottom:0; left:0; right:0; background:var(--surface); border-top:1px solid var(--border); padding:10px 16px; display:flex; gap:8px; z-index:99; align-items:center; }
     @media(min-width:900px){ .chat-input-bar { left:200px; } }
 
     .live-dot { display:inline-block; width:7px; height:7px; background:var(--green); border-radius:50%; animation:pulse 1.5s ease-in-out infinite; margin-right:4px; }
@@ -2949,7 +2949,7 @@ function renderChat() {
         ${!isMe ? memberAvatarHtml(sender, 32) : ''}
         <div>
           ${!isMe ? `<div style="font-size:0.65rem;font-weight:700;color:var(--text2);margin-bottom:3px">${escapeHtml(m.memberName)}</div>` : ''}
-          <div class="chat-text">${escapeHtml(censorText(m.text))}</div>
+          ${m.text.startsWith('[meme]') ? `<img src="${m.text.slice(6,-6)}" style="max-width:180px;border-radius:10px;display:block" loading="lazy">` : `<div class="chat-text">${escapeHtml(censorText(m.text))}</div>`}
           <div class="chat-meta">${day} ${time}</div>
         </div>
       </div>`;
@@ -2964,38 +2964,96 @@ function renderChat() {
     bar = document.createElement('div');
     bar.id = 'chatInputBar';
     bar.className = 'chat-input-bar';
-    bar.innerHTML = `<input class="form-input" id="chatInput" placeholder="Say something..." style="flex:1"
-      onkeydown="if(event.key==='Enter')sendChat()" maxlength="200">
+    bar.innerHTML = `
+      <div id="memePicker" style="display:none;position:absolute;bottom:100%;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);padding:10px 12px;max-height:220px;overflow-y:auto">
+        <div style="display:flex;background:var(--surface2);border-radius:8px;padding:3px;margin-bottom:8px">
+          <button id="memeTabEmoji" onclick="switchMemeTab('emoji')" style="flex:1;padding:5px;border:none;border-radius:6px;font-size:0.75rem;font-weight:700;cursor:pointer;background:var(--orange);color:#fff">Emoji</button>
+          <button id="memeTabMemes" onclick="switchMemeTab('memes')" style="flex:1;padding:5px;border:none;border-radius:6px;font-size:0.75rem;font-weight:700;cursor:pointer;background:transparent;color:var(--text2)">Memes</button>
+        </div>
+        <div id="memeEmojiGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">
+          ${CHAT_EMOJIS.map(e=>`<button onclick="sendEmoji('${e}')" style="font-size:1.4rem;background:none;border:none;cursor:pointer;padding:4px;border-radius:6px">${e}</button>`).join('')}
+        </div>
+        <div id="memeMemeGrid" style="display:none;grid-template-columns:repeat(3,1fr);gap:6px">
+          ${NBA_MEMES.map(m=>`<div onclick="sendMeme('${m.url}')" style="cursor:pointer;border-radius:8px;overflow:hidden;aspect-ratio:1;background:var(--surface2)"><img src="${m.url}" style="width:100%;height:100%;object-fit:cover" loading="lazy"><div style="font-size:0.55rem;text-align:center;padding:2px;color:var(--text2)">${m.label}</div></div>`).join('')}
+        </div>
+      </div>
+      <button onclick="toggleMemePicker()" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;width:38px;height:38px;font-size:1.3rem;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center">+</button>
+      <input class="form-input" id="chatInput" placeholder="Say something..." style="flex:1"
+        onkeydown="if(event.key==='Enter')sendChat()" maxlength="200">
       <button class="btn btn-primary" onclick="sendChat()">Send</button>`;
     document.getElementById('appContent').appendChild(bar);
   }
   bar.style.display = 'flex';
 }
 
-function sendChat() {
-  const input = document.getElementById('chatInput');
-  const text = input?.value.trim();
-  if (!text) return;
+const CHAT_EMOJIS = ['🏀','🔥','💀','😤','🐐','💯','😭','🤣','👑','🏆','💪','😱','🤯','👀','💸','🫡','🗑️','🧢','📈','⬆️','🎯','❄️','🤡','💔','🫠','😈','🙏','✅'];
+
+const NBA_MEMES = [
+  { label:'Crying Jordan',  url:'https://media.giphy.com/media/3oEduOnl5IHM5NRodO/giphy.gif' },
+  { label:'LeBron Silencer',url:'https://media.giphy.com/media/l0HlBO7eyXzSZkJri/giphy.gif' },
+  { label:'Steph Splash',   url:'https://media.giphy.com/media/xT1XGOzcLKDYFHMEys/giphy.gif' },
+  { label:'KD Burner',      url:'https://media.giphy.com/media/U3PxDMxcKS1nk/giphy.gif' },
+  { label:'Giannis No',     url:'https://media.giphy.com/media/6UFgdU9hirj1pAOJyN/giphy.gif' },
+  { label:'Shaq Laugh',     url:'https://media.giphy.com/media/5GoVLqeAOo6PK/giphy.gif' },
+  { label:'Bron Brow',      url:'https://media.giphy.com/media/26uf4r6RhMGeHMEsg/giphy.gif' },
+  { label:'Too Easy',       url:'https://media.giphy.com/media/d9IfL7seBexHLct4he/giphy.gif' },
+  { label:'Blocked!',       url:'https://media.giphy.com/media/3o7aTskHEUdgCQAXde/giphy.gif' },
+];
+
+let memePickerOpen = false;
+let memePickerTab = 'emoji';
+
+function toggleMemePicker() {
+  memePickerOpen = !memePickerOpen;
+  const el = document.getElementById('memePicker');
+  if (el) el.style.display = memePickerOpen ? 'block' : 'none';
+}
+
+function switchMemeTab(tab) {
+  memePickerTab = tab;
+  document.getElementById('memeTabEmoji').style.background = tab==='emoji' ? 'var(--orange)' : 'transparent';
+  document.getElementById('memeTabEmoji').style.color = tab==='emoji' ? '#fff' : 'var(--text2)';
+  document.getElementById('memeTabMemes').style.background = tab==='memes' ? 'var(--orange)' : 'transparent';
+  document.getElementById('memeTabMemes').style.color = tab==='memes' ? '#fff' : 'var(--text2)';
+  document.getElementById('memeEmojiGrid').style.display = tab==='emoji' ? 'grid' : 'none';
+  document.getElementById('memeMemeGrid').style.display = tab==='memes' ? 'grid' : 'none';
+}
+
+function sendMeme(url) {
+  memePickerOpen = false;
+  const el = document.getElementById('memePicker');
+  if (el) el.style.display = 'none';
+  sendChatMessage('[meme]' + url + '[/meme]');
+}
+
+function sendEmoji(emoji) {
+  memePickerOpen = false;
+  const el = document.getElementById('memePicker');
+  if (el) el.style.display = 'none';
+  sendChatMessage(emoji);
+}
+
+function sendChatMessage(text) {
   const me = currentMember();
   if (!me) return;
   const msgId = genId();
   const ts = Date.now();
-  const clean = censorText(text);
-  // Show immediately locally
-  const entry = { id:msgId, memberId:me.id, memberName:me.name, memberColor:me.color||'#f6511d', text:clean, ts };
+  const entry = { id:msgId, memberId:me.id, memberName:me.name, memberColor:me.color||'#f6511d', text, ts };
   chatMessages.push(entry);
   chatMessages.sort((a,b) => a.ts - b.ts);
   renderChat();
+  if (sb && chatChannel) chatChannel.send({ type:'broadcast', event:'msg', payload: entry });
+  if (sb) sb.from('messages').insert({ id:msgId, family_code:state.familyCode||'default',
+    member_id:me.id, member_name:me.name, member_color:me.color||'#f6511d', text,
+    created_at: new Date(ts).toISOString() });
+}
+
+function sendChat() {
+  const input = document.getElementById('chatInput');
+  const text = input?.value.trim();
+  if (!text) return;
   input.value = '';
-  // Broadcast to other devices in real-time + persist to DB
-  if (sb && chatChannel) {
-    chatChannel.send({ type:'broadcast', event:'msg', payload: entry });
-  }
-  if (sb) {
-    sb.from('messages').insert({ id:msgId, family_code:state.familyCode||'default',
-      member_id:me.id, member_name:me.name, member_color:me.color||'#f6511d', text:clean,
-      created_at: new Date(ts).toISOString() });
-  }
+  sendChatMessage(censorText(text));
 }
 
 function escapeHtml(s) {
