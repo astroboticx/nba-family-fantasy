@@ -1327,25 +1327,92 @@ function switchTab(tab) {
 // ==================== NBA DATA ====================
 async function fetchNBAData() {
   try {
-    const res = await fetch('https://cdn.nba.com/static/json/liveData/scoreboard/todaysScoreboard_00.json');
-    const data = await res.json();
-    state.games = data.scoreboard?.games || [];
-    state.lastFetch = Date.now();
-    const boxes = await Promise.all(state.games.map(g =>
-      fetch(`https://cdn.nba.com/static/json/liveData/boxscore/boxscore_${g.gameId}.json`).then(r=>r.json()).catch(()=>null)
-    ));
-    boxes.forEach(b => {
-      if (!b?.game) return;
-      [...(b.game.homeTeam?.players||[]), ...(b.game.awayTeam?.players||[])].forEach(p => {
-        if (!p.statistics) return;
-        const s = p.statistics;
-        state.playerStats[String(p.personId)] = {
-          pts:s.points||0, reb:s.reboundsTotal||0, ast:s.assists||0,
-          stl:s.steals||0, blk:s.blocks||0, tov:s.turnovers||0,
-          fg3m:s.threePointersMade||0, fp:calcFP(s), name:p.name
+    // Try NBA CDN first, fall back to ESPN
+    let games = [];
+    let usedESPN = false;
+    try {
+      const res = await fetch('https://cdn.nba.com/static/json/liveData/scoreboard/todaysScoreboard_00.json');
+      if (!res.ok) throw new Error('CDN blocked');
+      const data = await res.json();
+      games = data.scoreboard?.games || [];
+    } catch(e) { usedESPN = true; }
+
+    if (usedESPN) {
+      // Build game objects from ESPN API matching NBA CDN shape
+      const res = await fetch('https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard');
+      const data = await res.json();
+      const events = data.events || [];
+      games = events.map(e => {
+        const comp = e.competitions?.[0];
+        const home = comp?.competitors?.find(c => c.homeAway === 'home');
+        const away = comp?.competitors?.find(c => c.homeAway === 'away');
+        const st = comp?.status;
+        const typeName = st?.type?.name || '';
+        const gameStatus = typeName === 'STATUS_FINAL' ? 3 : typeName === 'STATUS_IN_PROGRESS' ? 2 : 1;
+        const clock = st?.displayClock;
+        const period = st?.period;
+        const gameStatusText = gameStatus === 3 ? 'Final'
+          : gameStatus === 2 ? `${clock} Q${period}`
+          : (comp?.date ? new Date(comp.date).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) : '');
+        return {
+          gameId: e.id,
+          gameStatus,
+          gameStatusText,
+          homeTeam: { teamTricode: home?.team?.abbreviation || '', score: home?.score || '' },
+          awayTeam: { teamTricode: away?.team?.abbreviation || '', score: away?.score || '' }
         };
       });
-    });
+      state.games = games;
+      state.lastFetch = Date.now();
+
+      // Fetch boxscore stats from ESPN summary for each live/final game
+      const activeGames = games.filter(g => g.gameStatus >= 2);
+      await Promise.all(activeGames.map(async g => {
+        try {
+          const sr = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=${g.gameId}`);
+          const sd = await sr.json();
+          (sd.boxscore?.players||[]).forEach(teamBox => {
+            (teamBox.statistics||[]).forEach(sg => {
+              const lbls = sg.labels||[];
+              const idx = k => lbls.findIndex(l => l.toUpperCase() === k);
+              const ptsI=idx('PTS'), rebI=idx('REB'), astI=idx('AST'),
+                    stlI=idx('STL'), blkI=idx('BLK'), toI=idx('TO'), fg3I=Math.max(idx('3PM'),idx('3PT'));
+              (sg.athletes||[]).forEach(ath => {
+                const stats = ath.stats||[];
+                const v = i => i>=0 ? (parseFloat((stats[i]||'').split('-')[0])||0) : 0;
+                const s = { points:v(ptsI), reboundsTotal:v(rebI), assists:v(astI),
+                            steals:v(stlI), blocks:v(blkI), turnovers:v(toI), threePointersMade:v(fg3I) };
+                const pid = ath.athlete?.id;
+                const pname = ath.athlete?.displayName || '';
+                const pdata = { pts:s.points, reb:s.reboundsTotal, ast:s.assists,
+                  stl:s.steals, blk:s.blocks, tov:s.turnovers,
+                  fg3m:s.threePointersMade, fp:calcFP(s), name:pname };
+                if (pid) state.playerStats[String(pid)] = pdata;
+                if (pname) state.playerStats['n:'+pname.toLowerCase()] = pdata;
+              });
+            });
+          });
+        } catch(e2) {}
+      }));
+    } else {
+      state.games = games;
+      state.lastFetch = Date.now();
+      const boxes = await Promise.all(state.games.map(g =>
+        fetch(`https://cdn.nba.com/static/json/liveData/boxscore/boxscore_${g.gameId}.json`).then(r=>r.json()).catch(()=>null)
+      ));
+      boxes.forEach(b => {
+        if (!b?.game) return;
+        [...(b.game.homeTeam?.players||[]), ...(b.game.awayTeam?.players||[])].forEach(p => {
+          if (!p.statistics) return;
+          const s = p.statistics;
+          state.playerStats[String(p.personId)] = {
+            pts:s.points||0, reb:s.reboundsTotal||0, ast:s.assists||0,
+            stl:s.steals||0, blk:s.blocks||0, tov:s.turnovers||0,
+            fg3m:s.threePointersMade||0, fp:calcFP(s), name:p.name
+          };
+        });
+      });
+    }
     awardFantasyPoints(); saveState();
     if (currentTab==='live') renderLive();
     if (currentTab==='home') renderHome();
@@ -1365,7 +1432,7 @@ function awardFantasyPoints() {
   state.members.forEach(member => {
     let earned = 0;
     (state.rosters[member.id]||[]).forEach(player => {
-      const stats = state.playerStats[String(player.id)];
+      const stats = state.playerStats[String(player.id)] || state.playerStats['n:'+(player.name||'').toLowerCase()];
       if (!stats) return;
       const prev = state.awardedFP[member.id+'_'+player.id] || 0;
       const newFP = Math.max(0, stats.fp - prev);
@@ -1543,7 +1610,8 @@ function renderLive() {
       const isLive = g.gameStatus === 2, isFinal = g.gameStatus === 3;
       const gameTeams = new Set([hTeam.teamTricode, aTeam.teamTricode]);
       const gamePlayerIds = state.members.flatMap(member =>
-        (state.rosters[member.id]||[]).map(p => ({...p, owner:member, stats:state.playerStats[String(p.id)]}))
+        (state.rosters[member.id]||[]).map(p => ({...p, owner:member,
+          stats: state.playerStats[String(p.id)] || state.playerStats['n:'+(p.name||'').toLowerCase()]}))
       ).filter(p => p.stats && gameTeams.has(p.team));
       html += `<div class="game-card">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
