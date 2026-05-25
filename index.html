@@ -964,12 +964,26 @@ async function loginWithCode() {
   // Check Supabase for members with this family code
   let sbMembers = [];
   try {
-    const { data, error } = await sb.from('members').select('*').eq('family_code', code);
+    const { data } = await sb.from('members').select('*').eq('family_code', code);
     if (data) sbMembers = data;
   } catch(e) {}
 
+  // Fallback: check local state (same device as creator)
+  if (sbMembers.length === 0 && state.familyCode &&
+      state.familyCode.toLowerCase() === code.toLowerCase() && state.members.length > 0) {
+    // Push local members to Supabase so other devices can find them
+    state.members.forEach(m => {
+      const d = { id:m.id, family_code:state.familyCode, name:m.name, color:m.color||'#f6511d',
+        frame:m.frame||'classic', points:m.points||0, total_earned:m.totalEarned||0,
+        pin:m.pin||null, updated_at:new Date().toISOString() };
+      if (m.pfp?.type==='nba') { d.pfp_type='nba'; d.pfp_id=m.pfp.playerId; }
+      sb.from('members').upsert(d);
+      sbMembers.push(d);
+    });
+  }
+
   if (sbMembers.length === 0) {
-    grid.innerHTML = '<div style="text-align:center;color:var(--text2);padding:20px;width:100%">No family found with that code.<br><small>Check the code or Sign Up.</small></div>';
+    grid.innerHTML = '<div style="text-align:center;color:var(--text2);padding:20px;width:100%">No family found with that code.<br><small>Check the spelling, or Sign Up to create a new family.</small></div>';
     return;
   }
 
@@ -1079,7 +1093,10 @@ function finishSetup() {
   if (wrap) wrap.style.display = 'none';
   showApp();
   startDataFetch();
-  setTimeout(() => pushMemberToSB(state.members[0]), 2000);
+  // Push immediately and after delay as safety net
+  for (let i = 0; i < 10; i++) {
+    setTimeout(() => pushMemberToSB(state.members[0]), i * 500 + 500);
+  }
 }
 
 function finishJoin() {
@@ -1101,7 +1118,9 @@ function finishJoin() {
   saveState();
   showApp();
   startDataFetch();
-  setTimeout(() => pushMemberToSB(member), 2000);
+  for (let i = 0; i < 10; i++) {
+    setTimeout(() => pushMemberToSB(member), i * 500 + 500);
+  }
 }
 
 // ==================== SETUP AVATAR ====================
