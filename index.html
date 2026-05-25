@@ -1348,7 +1348,8 @@ async function fetchNBAData() {
         const away = comp?.competitors?.find(c => c.homeAway === 'away');
         const st = comp?.status;
         const typeName = st?.type?.name || '';
-        const gameStatus = typeName === 'STATUS_FINAL' ? 3 : typeName === 'STATUS_IN_PROGRESS' ? 2 : 1;
+        const gameStatus = typeName === 'STATUS_FINAL' ? 3
+          : (typeName.startsWith('STATUS_IN') || typeName === 'STATUS_END_PERIOD' || typeName === 'STATUS_HALFTIME' || typeName === 'STATUS_END_OF_PERIOD') ? 2 : 1;
         const clock = st?.displayClock;
         const period = st?.period;
         const gameStatusText = gameStatus === 3 ? 'Final'
@@ -1648,7 +1649,7 @@ function renderLive() {
         </div>`;
       }
 
-      html += `<div class="game-card" style="cursor:pointer" onclick="toggleGameStats('gs-${gid}')">
+      html += `<div class="game-card" id="gc-${gid}" style="cursor:pointer" onclick="tapGameCard('${gid}')">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
           <div style="text-align:center;flex:1">
             <div style="font-size:0.62rem;color:var(--text2);font-weight:700;margin-bottom:4px">AWAY</div>
@@ -1708,9 +1709,49 @@ function toggleGameStats(id) {
   if (!el) return;
   const open = el.style.display !== 'none';
   el.style.display = open ? 'none' : 'block';
-  // Update the toggle hint
-  const hint = el.previousElementSibling?.querySelector?.('.stats-hint');
-  if (hint) hint.textContent = open ? 'tap for stats ▾' : 'tap to hide ▴';
+}
+
+async function tapGameCard(gid) {
+  const panelId = 'gs-' + gid;
+  let el = document.getElementById(panelId);
+  if (el) { toggleGameStats(panelId); return; }
+
+  // No panel yet — fetch boxscore on demand
+  const card = document.getElementById('gc-' + gid);
+  if (card) card.style.opacity = '0.6';
+  try {
+    const sr = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=${gid}`);
+    const sd = await sr.json();
+    if (!state.gameBoxscores) state.gameBoxscores = {};
+    const teamsData = sd.boxscore?.players || [];
+    const gameBox = { away: [], home: [] };
+    teamsData.forEach((teamBox, ti) => {
+      const side = ti === 0 ? 'away' : 'home';
+      (teamBox.statistics||[]).forEach(sg => {
+        const lbls = sg.labels||[];
+        const idx = k => lbls.findIndex(l => l.toUpperCase() === k);
+        const ptsI=idx('PTS'), rebI=idx('REB'), astI=idx('AST'),
+              stlI=idx('STL'), blkI=idx('BLK'), toI=idx('TO'), fg3I=Math.max(idx('3PM'),idx('3PT'));
+        (sg.athletes||[]).forEach(ath => {
+          const stats = ath.stats||[];
+          const v = i => i>=0 ? (parseFloat((stats[i]||'').split('-')[0])||0) : 0;
+          const s = { points:v(ptsI), reboundsTotal:v(rebI), assists:v(astI),
+                      steals:v(stlI), blocks:v(blkI), turnovers:v(toI), threePointersMade:v(fg3I) };
+          const pname = ath.athlete?.displayName || '';
+          const pdata = { pts:s.points, reb:s.reboundsTotal, ast:s.assists,
+            stl:s.steals, blk:s.blocks, tov:s.turnovers, fg3m:s.threePointersMade, fp:calcFP(s), name:pname };
+          if (ath.athlete?.id) state.playerStats[String(ath.athlete.id)] = pdata;
+          if (pname) state.playerStats['n:'+pname.toLowerCase()] = pdata;
+          if (pname && s.points > 0) gameBox[side].push(pdata);
+        });
+      });
+    });
+    gameBox.away.sort((a,b) => b.pts - a.pts);
+    gameBox.home.sort((a,b) => b.pts - a.pts);
+    state.gameBoxscores[gid] = gameBox;
+  } catch(e) {}
+  if (card) card.style.opacity = '1';
+  renderLive();
 }
 
 // ==================== RENDER: REWARDS ====================
