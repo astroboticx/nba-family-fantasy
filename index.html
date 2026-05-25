@@ -1366,12 +1366,16 @@ async function fetchNBAData() {
       state.lastFetch = Date.now();
 
       // Fetch boxscore stats from ESPN summary for each live/final game
+      if (!state.gameBoxscores) state.gameBoxscores = {};
       const activeGames = games.filter(g => g.gameStatus >= 2);
       await Promise.all(activeGames.map(async g => {
         try {
           const sr = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=${g.gameId}`);
           const sd = await sr.json();
-          (sd.boxscore?.players||[]).forEach(teamBox => {
+          const teamsData = sd.boxscore?.players || [];
+          const gameBox = { away: [], home: [] };
+          teamsData.forEach((teamBox, ti) => {
+            const side = ti === 0 ? 'away' : 'home';
             (teamBox.statistics||[]).forEach(sg => {
               const lbls = sg.labels||[];
               const idx = k => lbls.findIndex(l => l.toUpperCase() === k);
@@ -1389,28 +1393,42 @@ async function fetchNBAData() {
                   fg3m:s.threePointersMade, fp:calcFP(s), name:pname };
                 if (pid) state.playerStats[String(pid)] = pdata;
                 if (pname) state.playerStats['n:'+pname.toLowerCase()] = pdata;
+                if (pname && s.points > 0) gameBox[side].push(pdata);
               });
             });
           });
+          gameBox.away.sort((a,b) => b.pts - a.pts);
+          gameBox.home.sort((a,b) => b.pts - a.pts);
+          state.gameBoxscores[g.gameId] = gameBox;
         } catch(e2) {}
       }));
     } else {
       state.games = games;
       state.lastFetch = Date.now();
+      if (!state.gameBoxscores) state.gameBoxscores = {};
       const boxes = await Promise.all(state.games.map(g =>
         fetch(`https://cdn.nba.com/static/json/liveData/boxscore/boxscore_${g.gameId}.json`).then(r=>r.json()).catch(()=>null)
       ));
-      boxes.forEach(b => {
+      boxes.forEach((b, gi) => {
         if (!b?.game) return;
-        [...(b.game.homeTeam?.players||[]), ...(b.game.awayTeam?.players||[])].forEach(p => {
-          if (!p.statistics) return;
-          const s = p.statistics;
-          state.playerStats[String(p.personId)] = {
-            pts:s.points||0, reb:s.reboundsTotal||0, ast:s.assists||0,
-            stl:s.steals||0, blk:s.blocks||0, tov:s.turnovers||0,
-            fg3m:s.threePointersMade||0, fp:calcFP(s), name:p.name
-          };
-        });
+        const gid = state.games[gi]?.gameId;
+        const gameBox = { away: [], home: [] };
+        const processTeam = (players, side) => {
+          (players||[]).forEach(p => {
+            if (!p.statistics) return;
+            const s = p.statistics;
+            const pdata = { pts:s.points||0, reb:s.reboundsTotal||0, ast:s.assists||0,
+              stl:s.steals||0, blk:s.blocks||0, tov:s.turnovers||0,
+              fg3m:s.threePointersMade||0, fp:calcFP(s), name:p.name };
+            state.playerStats[String(p.personId)] = pdata;
+            if (s.points > 0) gameBox[side].push(pdata);
+          });
+        };
+        processTeam(b.game.awayTeam?.players, 'away');
+        processTeam(b.game.homeTeam?.players, 'home');
+        gameBox.away.sort((a,b) => b.pts - a.pts);
+        gameBox.home.sort((a,b) => b.pts - a.pts);
+        if (gid) state.gameBoxscores[gid] = gameBox;
       });
     }
     awardFantasyPoints(); saveState();
@@ -1613,7 +1631,24 @@ function renderLive() {
         (state.rosters[member.id]||[]).map(p => ({...p, owner:member,
           stats: state.playerStats[String(p.id)] || state.playerStats['n:'+(p.name||'').toLowerCase()]}))
       ).filter(p => p.stats && gameTeams.has(p.team));
-      html += `<div class="game-card">
+      const gid = g.gameId;
+      const box = (state.gameBoxscores||{})[gid];
+      const hasBox = box && (box.away.length > 0 || box.home.length > 0);
+      const topAway = box?.away?.slice(0,3) || [];
+      const topHome = box?.home?.slice(0,3) || [];
+
+      function playerRow(p) {
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border)22">
+          <div style="font-size:0.75rem;font-weight:700;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.name.split(' ').slice(-1)[0]}</div>
+          <div style="font-size:0.72rem;color:var(--text2);display:flex;gap:10px;flex-shrink:0">
+            <span style="color:var(--text);font-weight:800">${p.pts}<span style="color:var(--text2);font-weight:500"> pts</span></span>
+            <span>${p.reb}<span style="color:var(--text2)"> reb</span></span>
+            <span>${p.ast}<span style="color:var(--text2)"> ast</span></span>
+          </div>
+        </div>`;
+      }
+
+      html += `<div class="game-card" style="cursor:pointer" onclick="toggleGameStats('gs-${gid}')">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
           <div style="text-align:center;flex:1">
             <div style="font-size:0.62rem;color:var(--text2);font-weight:700;margin-bottom:4px">AWAY</div>
@@ -1625,13 +1660,32 @@ function renderLive() {
               ${isLive?'<span class="live-dot"></span>LIVE':isFinal?'FINAL':'VS'}
             </div>
             <div style="font-size:0.65rem;color:var(--text2)">${g.gameStatusText||''}</div>
+            ${hasBox ? `<div style="font-size:0.6rem;color:var(--text2);margin-top:4px">tap for stats ▾</div>` : ''}
           </div>
           <div style="text-align:center;flex:1">
             <div style="font-size:0.62rem;color:var(--text2);font-weight:700;margin-bottom:4px">HOME</div>
             ${teamLogoImg(hTeam.teamTricode)}
             <div style="font-size:1.6rem;font-weight:900;margin-top:2px">${hTeam.score||'—'}</div>
           </div>
-        </div>`;
+        </div>
+        ${hasBox ? `<div id="gs-${gid}" style="display:none;border-top:1px solid var(--border);padding-top:10px;margin-top:4px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div>
+              <div style="display:flex;align-items:center;gap:5px;margin-bottom:6px">
+                ${teamLogoImg(aTeam.teamTricode, 20)}
+                <span style="font-size:0.65rem;font-weight:800;color:var(--text2)">${aTeam.teamTricode}</span>
+              </div>
+              ${topAway.map(playerRow).join('')}
+            </div>
+            <div>
+              <div style="display:flex;align-items:center;gap:5px;margin-bottom:6px">
+                ${teamLogoImg(hTeam.teamTricode, 20)}
+                <span style="font-size:0.65rem;font-weight:800;color:var(--text2)">${hTeam.teamTricode}</span>
+              </div>
+              ${topHome.map(playerRow).join('')}
+            </div>
+          </div>
+        </div>` : ''}`;
       if (gamePlayerIds.length > 0) {
         html += `<div class="my-players-in-game"><div style="font-size:0.65rem;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:5px;border-top:1px solid var(--border);padding-top:8px">Your Players</div>`;
         gamePlayerIds.forEach(p => {
@@ -1647,6 +1701,16 @@ function renderLive() {
     });
   }
   document.getElementById('view-live').innerHTML = html;
+}
+
+function toggleGameStats(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const open = el.style.display !== 'none';
+  el.style.display = open ? 'none' : 'block';
+  // Update the toggle hint
+  const hint = el.previousElementSibling?.querySelector?.('.stats-hint');
+  if (hint) hint.textContent = open ? 'tap for stats ▾' : 'tap to hide ▴';
 }
 
 // ==================== RENDER: REWARDS ====================
