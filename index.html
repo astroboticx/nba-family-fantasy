@@ -2172,11 +2172,14 @@ async function fetchPlayoffTeams() {
       });
     });
 
-    // Only keep teams that played within the last 2 days (conference finals games are every 1-2 days)
-    const cutoff = new Date(now - 2*86400000);
+    // Keep teams that played within the last 5 days (accounts for rest days between playoff games)
+    const cutoff = new Date(now - 5*86400000);
     const active = Object.keys(lastSeen).filter(t => lastSeen[t] >= cutoff);
-    if (active.length > 0) {
-      state.playoffTeams = active;
+    // Always include known Conference Finals teams as fallback
+    const confFinals = ['OKC','SAS','NYK','IND','BOS','MIA','LAL','DEN','PHX','GSW','MIN','CLE'];
+    const merged = [...new Set([...active, ...confFinals.filter(t => lastSeen[t])])];
+    if (merged.length > 0) {
+      state.playoffTeams = merged;
       saveState();
     }
   } catch(e) {}
