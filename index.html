@@ -323,59 +323,84 @@
 </div>
 
 <!-- SETUP SCREEN -->
-<div class="setup-screen" id="setupScreen">
-  <img src="basketball.gif" style="height:80px;width:auto;margin-bottom:20px" alt="basketball">
-  <h1 style="font-size:2rem;font-weight:900;letter-spacing:-1px;margin-bottom:6px">Family Hoops</h1>
-  <p style="color:var(--text2);text-align:center;margin-bottom:28px;font-size:0.85rem;line-height:1.7">Fantasy NBA with <span style="color:var(--gold);font-weight:800">family points</span><br>— spend them to skip chores</p>
+<div class="setup-screen" id="setupScreen" style="justify-content:flex-start;padding-top:40px;overflow-y:auto">
+  <img src="basketball.gif" style="height:64px;width:auto;margin-bottom:10px" alt="basketball">
+  <h1 style="font-size:1.9rem;font-weight:900;letter-spacing:-1px;margin-bottom:4px">Family Hoops</h1>
+  <p style="color:var(--text2);font-size:0.8rem;margin-bottom:22px">Fantasy NBA · Family Points · Real Odds</p>
 
-  <!-- CHOICE PANEL -->
-  <div id="setupChoice" style="display:flex;flex-direction:column;gap:14px;width:100%;max-width:260px">
-    <button class="btn btn-primary" style="padding:18px;font-size:1rem;font-weight:900;border-radius:14px" onclick="showCreatePanel()">Create a Family</button>
-    <button class="btn btn-ghost" style="padding:18px;font-size:1rem;font-weight:900;border-radius:14px" onclick="showJoinPanel()">Join a Family</button>
+  <!-- AUTH TABS -->
+  <div style="display:flex;background:var(--surface2);border-radius:12px;padding:4px;width:100%;max-width:300px;margin-bottom:24px">
+    <button id="authTabLogin" onclick="switchAuthTab('login')"
+      style="flex:1;padding:10px;border:none;border-radius:9px;font-weight:800;font-size:0.9rem;cursor:pointer;background:var(--orange);color:#fff;transition:all .2s">Log In</button>
+    <button id="authTabSignup" onclick="switchAuthTab('signup')"
+      style="flex:1;padding:10px;border:none;border-radius:9px;font-weight:800;font-size:0.9rem;cursor:pointer;background:transparent;color:var(--text2);transition:all .2s">Sign Up</button>
   </div>
 
-  <!-- CREATE PANEL -->
-  <div id="setupCreatePanel" style="display:none;flex-direction:column;align-items:center">
-    <div id="setupAvatarWrap" style="position:relative;margin-bottom:14px;cursor:pointer" onclick="openAvatarPicker('setup')">
-      <div id="setupAvatarPreview" style="width:80px;height:80px;border-radius:50%;background:#f6511d;display:flex;align-items:center;justify-content:center;font-size:2rem;font-weight:900;color:#fff;overflow:hidden;border:3px solid #333;transition:border-color .2s;">?</div>
-      <div style="position:absolute;bottom:0;right:0;width:26px;height:26px;border-radius:50%;background:var(--orange);display:flex;align-items:center;justify-content:center;font-size:0.65rem;font-weight:900;border:2px solid var(--bg)">+</div>
-    </div>
-    <div style="display:flex;gap:8px;margin-bottom:20px">
-      <button class="btn btn-ghost btn-sm" onclick="openAvatarPicker('setup')">NBA Avatar</button>
-      <label class="btn btn-ghost btn-sm" style="cursor:pointer">Upload Photo<input type="file" accept="image/*" style="display:none" onchange="setupUploadPhoto(this)"></label>
-    </div>
-    <input class="form-input" id="setupName" placeholder="Your name..." maxlength="20"
-      style="width:240px;text-align:center;font-size:1rem;font-weight:700;margin-bottom:12px;border-radius:12px"
-      oninput="updateSetupPreview()">
-    <input class="form-input" id="setupPin" type="password" maxlength="4" placeholder="Set a 4-digit PIN" inputmode="numeric"
-      style="width:240px;text-align:center;font-size:1rem;font-weight:700;margin-bottom:6px;border-radius:12px;letter-spacing:6px"
-      onkeydown="if(event.key==='Enter')finishSetup()">
-    <div style="font-size:0.68rem;color:var(--text2);margin-bottom:16px">Required to log in each time</div>
-    <div id="familyCodeWrap" style="margin-bottom:20px;text-align:center">
-      <input class="form-input" id="setupFamilyCode" placeholder="Set a family code (e.g. hoops123)"
-        style="width:240px;text-align:center;font-size:0.9rem;font-weight:700;border-radius:12px;margin-bottom:4px">
-      <div style="font-size:0.68rem;color:var(--text2)">Others need this to join — keep it private</div>
-    </div>
-    <div style="display:flex;gap:10px">
-      <button class="btn btn-ghost" onclick="showSetupChoice()">Back</button>
-      <button class="btn btn-primary" style="padding:14px 28px;font-size:1rem;font-weight:900;border-radius:14px" onclick="finishSetup()">Play</button>
+  <!-- LOG IN PANEL -->
+  <div id="authLoginPanel" style="display:flex;flex-direction:column;align-items:center;width:100%;max-width:300px">
+    <input class="form-input" id="loginCodeInput" placeholder="Enter family code..."
+      style="width:100%;text-align:center;font-size:1rem;font-weight:700;border-radius:12px;letter-spacing:3px;margin-bottom:10px"
+      onkeydown="if(event.key==='Enter')loginWithCode()">
+    <button class="btn btn-primary" style="width:100%;margin-bottom:16px" onclick="loginWithCode()">Find My Family</button>
+    <div id="loginMemberGrid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;width:100%"></div>
+    <div id="loginPinSection" style="display:none;width:100%;margin-top:14px;text-align:center">
+      <div style="font-size:0.75rem;color:var(--text2);margin-bottom:6px">Enter PIN for <b id="loginPinName"></b></div>
+      <input class="form-input" id="loginPinInput" type="password" maxlength="4" inputmode="numeric"
+        placeholder="• • • •" style="width:100%;text-align:center;font-size:1.4rem;letter-spacing:10px;border-radius:12px;margin-bottom:8px"
+        onkeydown="if(event.key==='Enter')submitLoginPin()">
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost" style="flex:1" onclick="document.getElementById('loginPinSection').style.display='none'">Back</button>
+        <button class="btn btn-primary" style="flex:1" onclick="submitLoginPin()">Log In</button>
+      </div>
     </div>
   </div>
 
-  <!-- JOIN PANEL -->
-  <div id="setupJoinPanel" style="display:none;flex-direction:column;align-items:center">
-    <input class="form-input" id="joinName" placeholder="Your name..." maxlength="20"
-      style="width:240px;text-align:center;font-size:1rem;font-weight:700;margin-bottom:12px;border-radius:12px">
-    <input class="form-input" id="joinPin" type="password" maxlength="4" placeholder="Set a 4-digit PIN" inputmode="numeric"
-      style="width:240px;text-align:center;font-size:1rem;font-weight:700;margin-bottom:6px;border-radius:12px;letter-spacing:6px">
-    <div style="font-size:0.68rem;color:var(--text2);margin-bottom:16px">Required to log in each time</div>
-    <input class="form-input" id="joinFamilyCode" type="password" placeholder="Enter family code..."
-      style="width:240px;text-align:center;font-size:1rem;font-weight:700;margin-bottom:6px;border-radius:12px;letter-spacing:4px"
-      onkeydown="if(event.key==='Enter')finishJoin()">
-    <div style="font-size:0.68rem;color:var(--text2);margin-bottom:20px">Ask your family for the code</div>
-    <div style="display:flex;gap:10px">
-      <button class="btn btn-ghost" onclick="showSetupChoice()">Back</button>
-      <button class="btn btn-primary" style="padding:14px 28px;font-size:1rem;font-weight:900;border-radius:14px" onclick="finishJoin()">Join</button>
+  <!-- SIGN UP PANEL -->
+  <div id="authSignupPanel" style="display:none;flex-direction:column;align-items:center;width:100%;max-width:300px">
+    <!-- Sub-tabs -->
+    <div style="display:flex;background:var(--surface2);border-radius:10px;padding:3px;width:100%;margin-bottom:20px">
+      <button id="signupTabNew" onclick="switchSignupType('new')"
+        style="flex:1;padding:8px;border:none;border-radius:8px;font-weight:700;font-size:0.82rem;cursor:pointer;background:var(--orange);color:#fff;transition:all .2s">New Family</button>
+      <button id="signupTabJoin" onclick="switchSignupType('join')"
+        style="flex:1;padding:8px;border:none;border-radius:8px;font-weight:700;font-size:0.82rem;cursor:pointer;background:transparent;color:var(--text2);transition:all .2s">Join Family</button>
+    </div>
+
+    <!-- New Family form -->
+    <div id="signupNewForm" style="display:flex;flex-direction:column;align-items:center;width:100%">
+      <div id="setupAvatarWrap" style="position:relative;margin-bottom:10px;cursor:pointer" onclick="openAvatarPicker('setup')">
+        <div id="setupAvatarPreview" style="width:72px;height:72px;border-radius:50%;background:#f6511d;display:flex;align-items:center;justify-content:center;font-size:1.8rem;font-weight:900;color:#fff;overflow:hidden;border:3px solid #333">?</div>
+        <div style="position:absolute;bottom:0;right:0;width:22px;height:22px;border-radius:50%;background:var(--orange);display:flex;align-items:center;justify-content:center;font-size:0.6rem;font-weight:900;border:2px solid var(--bg)">+</div>
+      </div>
+      <div style="display:flex;gap:6px;margin-bottom:14px">
+        <button class="btn btn-ghost btn-sm" onclick="openAvatarPicker('setup')">NBA Avatar</button>
+        <label class="btn btn-ghost btn-sm" style="cursor:pointer">Upload<input type="file" accept="image/*" style="display:none" onchange="setupUploadPhoto(this)"></label>
+      </div>
+      <input class="form-input" id="setupName" placeholder="Your name..." maxlength="20"
+        style="width:100%;text-align:center;font-size:1rem;font-weight:700;margin-bottom:10px;border-radius:12px" oninput="updateSetupPreview()">
+      <input class="form-input" id="setupPin" type="password" maxlength="4" placeholder="Set a 4-digit PIN" inputmode="numeric"
+        style="width:100%;text-align:center;font-size:1rem;font-weight:700;margin-bottom:4px;border-radius:12px;letter-spacing:6px"
+        onkeydown="if(event.key==='Enter')finishSetup()">
+      <div style="font-size:0.65rem;color:var(--text2);margin-bottom:12px">Required to log in each time</div>
+      <div id="familyCodeWrap" style="width:100%;margin-bottom:16px;text-align:center">
+        <input class="form-input" id="setupFamilyCode" placeholder="Create a family code..." maxlength="20"
+          style="width:100%;text-align:center;font-size:0.9rem;font-weight:700;border-radius:12px;margin-bottom:4px">
+        <div style="font-size:0.65rem;color:var(--text2)">Share this with your family to join</div>
+      </div>
+      <button class="btn btn-primary" style="width:100%;padding:14px;font-size:1rem;font-weight:900;border-radius:14px" onclick="finishSetup()">Create Family</button>
+    </div>
+
+    <!-- Join Family form -->
+    <div id="signupJoinForm" style="display:none;flex-direction:column;align-items:center;width:100%">
+      <input class="form-input" id="joinName" placeholder="Your name..." maxlength="20"
+        style="width:100%;text-align:center;font-size:1rem;font-weight:700;margin-bottom:10px;border-radius:12px">
+      <input class="form-input" id="joinPin" type="password" maxlength="4" placeholder="Set a 4-digit PIN" inputmode="numeric"
+        style="width:100%;text-align:center;font-size:1rem;font-weight:700;margin-bottom:4px;border-radius:12px;letter-spacing:6px">
+      <div style="font-size:0.65rem;color:var(--text2);margin-bottom:12px">Required to log in each time</div>
+      <input class="form-input" id="joinFamilyCode" placeholder="Enter family code..." maxlength="20"
+        style="width:100%;text-align:center;font-size:1rem;font-weight:700;margin-bottom:4px;border-radius:12px;letter-spacing:4px"
+        onkeydown="if(event.key==='Enter')finishJoin()">
+      <div style="font-size:0.65rem;color:var(--text2);margin-bottom:16px">Ask your family for the code</div>
+      <button class="btn btn-primary" style="width:100%;padding:14px;font-size:1rem;font-weight:900;border-radius:14px" onclick="finishJoin()">Join Family</button>
     </div>
   </div>
 </div>
@@ -884,23 +909,124 @@ function showSetup() {
   showSetupChoice();
 }
 
-function showSetupChoice() {
-  document.getElementById('setupChoice').style.display = 'flex';
-  document.getElementById('setupCreatePanel').style.display = 'none';
-  document.getElementById('setupJoinPanel').style.display = 'none';
+function showSetupChoice() { switchAuthTab('login'); }
+function showCreatePanel() { switchAuthTab('signup'); switchSignupType('new'); }
+function showJoinPanel() { switchAuthTab('signup'); switchSignupType('join'); }
+
+function switchAuthTab(tab) {
+  const isLogin = tab === 'login';
+  document.getElementById('authLoginPanel').style.display = isLogin ? 'flex' : 'none';
+  document.getElementById('authSignupPanel').style.display = isLogin ? 'none' : 'flex';
+  const tabLogin = document.getElementById('authTabLogin');
+  const tabSignup = document.getElementById('authTabSignup');
+  if (tabLogin) {
+    tabLogin.style.background = isLogin ? 'var(--orange)' : 'transparent';
+    tabLogin.style.color = isLogin ? '#fff' : 'var(--text2)';
+    tabSignup.style.background = isLogin ? 'transparent' : 'var(--orange)';
+    tabSignup.style.color = isLogin ? 'var(--text2)' : '#fff';
+  }
 }
 
-function showCreatePanel() {
-  document.getElementById('setupChoice').style.display = 'none';
-  document.getElementById('setupCreatePanel').style.display = 'flex';
-  document.getElementById('setupJoinPanel').style.display = 'none';
+function switchSignupType(type) {
+  const isNew = type === 'new';
+  document.getElementById('signupNewForm').style.display = isNew ? 'flex' : 'none';
+  document.getElementById('signupJoinForm').style.display = isNew ? 'none' : 'flex';
+  const tabNew = document.getElementById('signupTabNew');
+  const tabJoin = document.getElementById('signupTabJoin');
+  if (tabNew) {
+    tabNew.style.background = isNew ? 'var(--orange)' : 'transparent';
+    tabNew.style.color = isNew ? '#fff' : 'var(--text2)';
+    tabJoin.style.background = isNew ? 'transparent' : 'var(--orange)';
+    tabJoin.style.color = isNew ? 'var(--text2)' : '#fff';
+  }
 }
 
-function showJoinPanel() {
-  document.getElementById('setupChoice').style.display = 'none';
-  document.getElementById('setupCreatePanel').style.display = 'none';
-  document.getElementById('setupJoinPanel').style.display = 'flex';
-  document.getElementById('joinName').focus();
+let _loginSelectedMemberId = null;
+
+async function loginWithCode() {
+  const code = document.getElementById('loginCodeInput')?.value.trim();
+  if (!code) { showToast('Enter a family code', 'error'); return; }
+  const grid = document.getElementById('loginMemberGrid');
+  grid.innerHTML = '<div style="text-align:center;color:var(--text2);padding:20px;width:100%">Searching...</div>';
+  document.getElementById('loginPinSection').style.display = 'none';
+
+  // Ensure Supabase client is ready (without full initSB which subscribes channels)
+  if (!sb) {
+    for (let i = 0; i < 30 && !sb; i++) {
+      if (typeof supabase !== 'undefined') { sb = supabase.createClient(SB_URL, SB_KEY); break; }
+      await new Promise(r => setTimeout(r, 100));
+    }
+  }
+  if (!sb) {
+    grid.innerHTML = '<div style="text-align:center;color:var(--text2);padding:20px;width:100%">Connection error. Check your internet and try again.</div>';
+    return;
+  }
+
+  // Check Supabase for members with this family code
+  let sbMembers = [];
+  try {
+    const { data, error } = await sb.from('members').select('*').eq('family_code', code);
+    if (data) sbMembers = data;
+  } catch(e) {}
+
+  if (sbMembers.length === 0) {
+    grid.innerHTML = '<div style="text-align:center;color:var(--text2);padding:20px;width:100%">No family found with that code.<br><small>Check the code or Sign Up.</small></div>';
+    return;
+  }
+
+  grid.innerHTML = '';
+  sbMembers.forEach(m => {
+    const localM = { ...m, pfp: m.pfp_type === 'nba' ? { type:'nba', playerId:m.pfp_id } : undefined };
+    const avatarHtml = memberAvatarHtml(localM, 52);
+    const card = document.createElement('div');
+    card.style.cssText = 'background:var(--surface2);border-radius:12px;padding:12px 8px;text-align:center;cursor:pointer;border:2px solid transparent;transition:border-color .15s';
+    card.innerHTML = `<div style="display:flex;justify-content:center;margin-bottom:6px">${avatarHtml}</div><div style="font-size:0.8rem;font-weight:800;color:var(--text)">${m.name}</div>`;
+    card.onclick = () => selectLoginMember(m, sbMembers, code);
+    grid.appendChild(card);
+  });
+}
+
+function selectLoginMember(member, allMembers, familyCode) {
+  _loginSelectedMemberId = member.id;
+  if (member.pin) {
+    document.getElementById('loginPinName').textContent = member.name;
+    document.getElementById('loginPinInput').value = '';
+    document.getElementById('loginPinSection').style.display = 'block';
+    document.getElementById('loginPinInput').focus();
+    _loginPendingData = { member, allMembers, familyCode };
+  } else {
+    completeLoginWithMemberData(member, allMembers, familyCode);
+  }
+}
+
+let _loginPendingData = null;
+
+function submitLoginPin() {
+  const pin = document.getElementById('loginPinInput')?.value.trim();
+  if (!_loginPendingData) return;
+  const { member, allMembers, familyCode } = _loginPendingData;
+  if (pin !== member.pin) { showToast('Wrong PIN', 'error'); return; }
+  completeLoginWithMemberData(member, allMembers, familyCode);
+}
+
+function completeLoginWithMemberData(member, allMembers, familyCode) {
+  // Load all family members into local state
+  state.familyCode = familyCode;
+  state.members = allMembers.map(m => ({
+    id: m.id,
+    name: m.name,
+    color: m.color || '#f6511d',
+    points: m.points || 0,
+    totalEarned: m.total_earned || 0,
+    frame: m.frame,
+    pfp: m.pfp_type === 'nba' ? { type: 'nba', playerId: m.pfp_id } : undefined,
+    pin: m.pin
+  }));
+  state.currentMemberId = member.id;
+  sessionLoggedIn = true;
+  saveState();
+  showApp();
+  startDataFetch();
 }
 
 function showApp() {
